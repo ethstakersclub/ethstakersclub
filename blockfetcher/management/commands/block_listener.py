@@ -93,8 +93,9 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
                     epochs_per_second = (epochs_processed - tasks_count) / elapsed_time
                     print_status('info', f"Epochs per second: {epochs_per_second}, Epochs processed: {epochs_processed}")
 
-                    main_row.last_epoch_slot_processed = slot - SLOTS_PER_EPOCH
-                    main_row.save()
+                    if loop_epoch % 10 == 0:
+                        main_row.last_epoch_slot_processed = slot - SLOTS_PER_EPOCH
+                        main_row.save()
 
                     loop_epoch = int(slot / SLOTS_PER_EPOCH)
 
@@ -188,7 +189,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
         create_sync_committee(loop_epoch - 256)
 
-        SNAPSHOT_CREATION_EPOCH_DELAY = 10
+        SNAPSHOT_CREATION_EPOCH_DELAY = 50
         MEV_FETCH_DELAY_SLOTS = SLOTS_PER_EPOCH * 2
 
         initial_run = True
@@ -252,7 +253,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                                 last_balance_snapshot_planned_date = snapshot_creation_date.date()
                                 main_row.last_balance_snapshot_planned_date = last_balance_snapshot_planned_date
-
+                            
                             if main_row.finalized_checkpoint_epoch >= check_epoch - 3:
                                 finalized_check_epoch = check_epoch - 3
                                 for i in range(last_missed_attestation_aggregation_epoch + 1, finalized_check_epoch + 1):
@@ -327,7 +328,6 @@ class Command(BaseCommand):
         client = sseclient.SSEClient(response)
         last_balance_update_time = time.time()
         for event in client.events():
-            print(event.data)
             event_slot=int(json.loads(event.data)["slot"])
             if str(event.event) == "chain_reorg":
                 print("reorg")
@@ -335,5 +335,4 @@ class Command(BaseCommand):
                 loop_epoch = int((event_slot-1) / SLOTS_PER_EPOCH)
                 last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, event_slot, loop_epoch, last_balance_update_time, True)
             else:
-                print(time.time() - last_balance_update_time)
                 last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, last_slot_processed+1, loop_epoch, last_balance_update_time)
