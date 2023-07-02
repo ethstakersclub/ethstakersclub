@@ -1,0 +1,337 @@
+{% verbatim %}
+<template id="table-component">
+  <div class="table-container dark-theme mt-0 ml-2 mr-2">
+    <table class="table table-dark mb-0">
+      <thead>
+        <tr>
+          <th v-for="column in columns" :key="column.key" @click="sortTable(column.key)">
+            {{ column.label }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in paginatedData" :key="item[keyProp]">
+          <td v-for="column in columns" :key="column.key">
+            <span :class="renderClass(item, column)">
+              {{ renderColumnValue(item, column) }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pagination-container">
+      <div class="pagination-info">
+        <div v-if="rowsPerPageOptions.length > 1" class="pagination-dropdown">
+          <label for="rowsPerPage" class="mb-0">Rows per page:</label>
+          <select id="rowsPerPage" v-model="itemsPerPage">
+            <option v-for="option in rowsPerPageOptions" :value="option" :key="option">
+              {{ option }}
+            </option>
+          </select>
+        </div>
+        <div class="pagination-count">
+          {{ paginationCount }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="pagination-button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+{% endverbatim %}
+
+{% comment %}
+<script>
+    const tableComponent = {
+        template: '#table-component',
+        props: {
+            data: {
+            type: Array,
+            required: true,
+            },
+            columns: {
+            type: Array,
+            required: true,
+            },
+            rowsPerPageOptions: {
+            type: Array,
+            default: () => [5, 10, 20],
+            },
+        },
+        data() {
+            const defaultItemsPerPage = this.rowsPerPageOptions[0] || 5;
+            return {
+            sortKey: '',
+            sortOrder: 1,
+            currentPage: 1,
+            itemsPerPage: defaultItemsPerPage,
+            };
+        },
+        computed: {
+            sortedData() {
+            const data = [...this.data]; // Create a copy of the data
+
+            if (this.sortKey) {
+                data.sort((a, b) => {
+                const valueA = a[this.sortKey];
+                const valueB = b[this.sortKey];
+                return (valueA - valueB) * this.sortOrder;
+                });
+            }
+
+            return data;
+            },
+            paginatedData() {
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+            const endIndex = startIndex + this.itemsPerPage;
+            return this.sortedData.slice(startIndex, endIndex);
+            },
+            totalPages() {
+            return Math.ceil(this.sortedData.length / this.itemsPerPage);
+            },
+            paginationCount() {
+            const startIndex = (this.currentPage - 1) * this.itemsPerPage + 1;
+            const endIndex = Math.min(this.currentPage * this.itemsPerPage, this.sortedData.length);
+            return `${startIndex}-${endIndex} of ${this.sortedData.length}`;
+            },
+        },
+        methods: {
+            sortTable(key) {
+            if (this.sortKey === key) {
+                this.sortOrder *= -1;
+            }
+            else {
+                this.sortKey = key;
+                this.sortOrder = 1;
+            }
+            },
+            goToPage(pageNumber) {
+            this.currentPage = pageNumber;
+            },
+            getColumnValue(item, key) {
+            if (item.hasOwnProperty(key)) {
+                return item[key];
+            }
+            return '-';
+            },
+            renderColumnValue(item, column) {
+            if (typeof column.renderFunction === 'function') {
+                return column.renderFunction(this.getColumnValue(item, column.key), item);
+            }
+            return this.getColumnValue(item, column.key);
+            },
+            renderClass(item, column) {
+            if (typeof column.renderClass === 'function') {
+                return column.renderClass(this.getColumnValue(item, column.key), item);
+            }
+            return "";
+            },
+        },
+    };
+</script>
+{% endcomment %}
+
+<script>
+  const tableComponent = {
+    template: '#table-component',
+    props: {
+      data: {
+        type: Array,
+        required: true,
+      },
+      columns: {
+        type: Array,
+        required: true,
+      },
+      rowsPerPageOptions: {
+        type: Array,
+        default: () => [5, 10, 20],
+      },
+      itemCount: {
+        type: Number,
+        default: null,
+      },
+      apiEndpoint: {
+        type: String,
+        default: "",
+      },
+      allowSort: {
+        type: Boolean,
+        default: true,
+      },
+      keyProp: {
+        type: String,
+        required: true
+      }
+    },
+    data() {
+      const defaultItemsPerPage = this.rowsPerPageOptions[0] || 5;
+      return {
+        sortKey: '',
+        sortOrder: 1,
+        currentPage: 1,
+        itemsPerPage: defaultItemsPerPage,
+        combinedData: [], // Initialize combinedData as an empty array updating in watcher
+        paginationStartIndex: 0
+      };
+    },
+    watch: {
+      data(newData) {
+        // Update combinedData when the data prop changes
+        this.combinedData = [...newData];
+      },
+    },
+    computed: {
+      sortedData() {
+        if(!this.allowSort){
+          return [...this.combinedData];
+        }
+        const data = [...this.combinedData]; // Create a copy of the data
+
+        if (this.sortKey) {
+          data.sort((a, b) => {
+            const valueA = a[this.sortKey];
+            const valueB = b[this.sortKey];
+            return (valueA - valueB) * this.sortOrder;
+          });
+        }
+
+        return data;
+      },
+      paginatedData() {
+        currentPageNum = this.currentPage - this.paginationStartIndex;
+        const startIndex = (currentPageNum - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+        return this.sortedData.slice(startIndex, endIndex);
+      },
+      totalPages() {
+        const maxSlotNumber = Math.max(...this.combinedData.map(item => item.slot_number));
+        if (maxSlotNumber > this.itemCount) {
+          return Math.ceil(maxSlotNumber / this.itemsPerPage);
+        } else if (this.itemCount !== null) {
+          return Math.ceil(this.itemCount / this.itemsPerPage);
+        } else {
+          return Math.ceil(this.sortedData.length / this.itemsPerPage);
+        }
+      },
+      paginationCount() {
+        const maxSlotNumber = Math.max(...this.combinedData.map(item => item.slot_number));
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage + 1;
+        const endIndex = Math.min(this.currentPage * this.itemsPerPage, this.itemCount || this.sortedData.length);
+        return `${startIndex}-${endIndex} of ${Math.max(this.itemCount || 0, this.sortedData.length, maxSlotNumber)}`;
+      },
+      shouldFetchMoreData() {
+        if (this.itemCount !== null) {
+          return this.sortedData.length < this.itemCount;
+        } else {
+          return false;
+        }
+      },
+    },
+    methods: {
+      sortTable(key) {
+        if (this.sortKey === key) {
+          this.sortOrder *= -1;
+        } else {
+          this.sortKey = key;
+          this.sortOrder = 1;
+        }
+      },
+      goToPage(pageNumber) {
+        if(this.apiEndpoint == ""){
+          if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+            this.currentPage = pageNumber;
+          }
+        }
+        else{
+          if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+              this.fetchMoreData(pageNumber).then(() => {
+                this.currentPage = pageNumber;
+              });
+          }
+        }
+      },
+      getColumnValue(item, key) {
+        if (item.hasOwnProperty(key)) {
+          return item[key];
+        }
+        return '-';
+      },
+      renderColumnValue(item, column) {
+        if (typeof column.renderFunction === 'function') {
+          return column.renderFunction(this.getColumnValue(item, column.key), item);
+        }
+        return this.getColumnValue(item, column.key);
+      },
+      renderClass(item, column) {
+        if (typeof column.renderClass === 'function') {
+          return column.renderClass(this.getColumnValue(item, column.key), item);
+        }
+        return "";
+      },
+      async fetchMoreData(pageNumber) {
+        try {
+          const currentDataCount = this.combinedData.length;
+          const maxSlotNumber = Math.max(...this.combinedData.map(item => item.slot_number));
+          const minSlotNumber = Math.min(...this.combinedData.map(item => item.slot_number));
+          
+          let rangeValue = this.itemsPerPage;
+          let cursorValue0;
+          let directionValue;
+
+          console.log(maxSlotNumber)
+          console.log(this.currentPage)
+          console.log(pageNumber)
+          
+          directionValue = 'descending';
+          cursorValue = maxSlotNumber - (this.itemsPerPage * (pageNumber - this.currentPage)) + 1;
+      
+          const response = await axios.get(this.apiEndpoint, {
+            params: {
+              range: rangeValue,
+              cursor: cursorValue,
+              direction: directionValue,
+            },
+          });
+      
+          const newData = response.data.data;
+      
+          console.log(newData);
+
+          
+          /*
+          // Update existing items with the same slot_number if they exist
+          newData.forEach(newItem => {
+            const existingItemIndex = this.combinedData.findIndex(item => item.slot_number === newItem.slot_number);
+            if (existingItemIndex !== -1) {
+              this.combinedData.splice(existingItemIndex, 1, newItem);
+            }
+          });*/
+          
+          this.paginationStartIndex = pageNumber - 1;
+
+          // Append the new data to the existing data array
+          this.combinedData = [...newData];
+      
+          // Sort the combinedData based on the sortKey and sortOrder
+          /*
+          this.combinedData.sort((a, b) => {
+            const valueA = a[this.sortKey];
+            const valueB = b[this.sortKey];
+            return (valueA - valueB) * this.sortOrder;
+          });*/
+        } catch (error) {
+          console.error('Error fetching more data:', error);
+          // Handle the error condition
+        }
+      }
+    },
+  };
+</script>

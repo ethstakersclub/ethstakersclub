@@ -1,0 +1,185 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Dashboard - Attestation Live Minitoring - {% endblock %}
+
+{% block head %}
+<style>
+  .dark-theme table.table th,
+  .dark-theme table.table td {
+    border: none;
+    padding: 2px;
+    font-size:80%;
+    padding-left: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='attestation_live_monitoring' %}
+  <div class="m-0">
+    <div class="linechart-element mt-6">
+      <canvas id="linechart"></canvas>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Attestation Live Monitoring</div>
+        <div>
+          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns" :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% elif validator_count <= 9 %}50{% elif validator_count <= 10 %}55{% elif validator_count <= 11 %}60{% elif validator_count <= 12 %}65{% elif validator_count <= 13 %}70{% elif validator_count <= 14 %}75{% elif validator_count <= 15 %}80{% elif validator_count <= 16 %}85{% elif validator_count <= 17 %}90{% elif validator_count <= 18 %}95{% else %}100{% endif %}]"
+           :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :allow-sort="false" :key-prop="'slot'"
+           :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'" :live-update="true" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        attestationsJsonData: [],
+        attestationsTableColumns: [
+          { key: 'epoch', label: 'Epoch' },
+          { key: 'slot', label: 'Slot' },
+          { key: 'block_timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'validator_id', label: 'Validator ID' },
+          { key: 'distance', label: 'Distance',
+            renderFunction: (value, item) => {
+              return value != 255 ? value : '-'
+            },
+          },
+          { key: 'status', label: 'Status',
+            renderFunction: (value, item) => {
+              return item.distance == 255 ? calculateTimeDifferenceSeconds(item.block_timestamp) > 200 ? 'Missed' : 'Scheduled' : 'Attested'
+            },
+            renderClass: (value, item) => {
+              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-danger': item.distance === 255 && timeDifference > 200,
+                'bg-primary': item.distance === 255 && timeDifference <= 200,
+                'bg-success': item.distance !== 255,
+              };
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.attestationsJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+Chart.defaults.borderColor = '#ffffff07';
+Chart.defaults.color = '#ddd';
+var ctx = document.getElementById("linechart").getContext("2d");
+var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+gradient.addColorStop(1, 'green');
+gradient.addColorStop(0, 'orange');
+
+const data = {
+  labels: [],
+  datasets: [
+    {
+      label: 'Missed Attestations',
+      data: [],
+      borderColor: function(context) {
+        var index = context.dataIndex;
+        var value = context.dataset.data[index];
+        var max = Math.max(...context.dataset.data);
+        var color = gradient;
+
+        if (value === max) {
+          color = 'orange';
+        }
+        
+        return color;
+      },
+      tension: 0.4,
+      type: 'line',
+      yAxisID: 'y2',
+      borderWidth: 1.5,
+      pointRadius: 1,
+      pointStyle: false,
+    },
+  ]
+};
+
+const dataList = JSON.parse('{{ chart_data | safe }}');
+
+dataList.forEach(item => {
+  data.labels.push(item.date);
+  data.datasets[0].data.push(parseInt(item.missed_attestations_change)); // Missed attestation data
+});
+
+var attestationLineChart = new Chart(ctx, {
+  type: 'bar',
+  data: data,
+  options: {
+    plugins: {
+      title: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+
+            if (label) {
+                label += ': ';
+            }
+            if (context.parsed.y !== null) {
+                if(context.dataset.yAxisID != "y2")
+                  label += context.parsed.y.toFixed(6);
+                else
+                  label += context.parsed.y;
+            }
+            return label;
+          }
+        }
+      }
+    },
+    elements: {
+      bar: {
+        borderWidth: 2,
+      }
+    },
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        stacked: true,
+      },
+      y2: {
+        type: 'linear',
+        position: 'right',
+        ticks: {
+        },
+        grid: {
+          drawOnChartArea: false
+        },
+      }
+    }
+  }
+});
+</script>
+{% endblock %}

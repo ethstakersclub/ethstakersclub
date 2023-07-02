@@ -1,0 +1,80 @@
+{% extends "account/base.html" %}
+
+{% load static %}
+
+{% block body %}
+<div class="container-fluid text-white" style="background-color: #151e33;">
+    <div class="row no-gutter">
+        <!-- The image half -->
+        <div class="col-md-6 d-none d-md-flex bg-image"></div>
+
+
+        <!-- The content half -->
+        <div class="col-md-6">
+            <div class="login d-flex align-items-center py-5">
+
+                <!-- Demo content-->
+                <div class="w-100">
+                    <div class="row">
+                        <div class="col-lg-10 col-xl-7 mx-auto">
+                            <h3 class="display-4">Log in</h3>
+                            
+                            {% for error in form.non_field_errors %}
+                                <div class="mb-1 w-full p-2 bg-red-800 items-center text-white leading-none lg:rounded-full flex lg:inline-flex" role="alert">
+                                    <span class="flex rounded-full bg-red-600 uppercase px-2 py-1 text-xs font-bold mr-3">Error</span>
+                                    <span class="font-semibold mr-2 text-left flex-auto">{{ error }}</span>
+                                    <svg class="fill-current opacity-75 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12.95 10.707l.707-.707L8 4.343 6.586 5.757 10.828 10l-4.242 4.243L8 15.657l4.95-4.95z"/></svg>
+                                  </div>
+                            {% endfor %}
+                            <form id="login_form" method="post" action="{% url 'account_login' %}">
+                            	{% csrf_token %}
+                            	
+                            	{% if redirect_field_value %}
+                                    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                                {% endif %}
+
+                                {% for field in form %}
+                                <div class="form-group mb-3">
+                                    {% for error in field.errors %}
+                                          <div class="mb-1 w-100 px-2 py-2 bg-danger align-items-center text-white lh-1 rounded-pill d-flex inline-flex-lg" role="alert">
+                                            <span class="d-flex rounded-circle bg-danger text-uppercase px-2 py-1 text-sm font-weight-bold mr-2">Error</span>
+                                            <span class="fw-semibold mr-0 text-start flex-grow-1">{{ error }}</span>
+                                            <svg style="fill: white;width: 2rem;height: 2rem;min-width: 2rem;min-height: 2rem;opacity: 0.75;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M12.95 10.707l.707-.707L8 4.343 6.586 5.757 10.828 10l-4.242 4.243L8 15.657l4.95-4.95z"/></svg>
+                                          </div>
+                                    {% endfor %}
+                                    <input
+                                        type="{{ field.field.widget.input_type }}"
+                                        placeholder="{{ field.label }}"
+                                        {% if field.name != "remember" %}class="form-control rounded-pill border-0 shadow-sm px-4 text-white"{% endif %}
+                                        tabindex="0"
+                                        name="{{ field.html_name }}"
+                                        id="{{ field.id_for_label }}"
+                                        value="{% if field.value %}{{ field.value }}{% endif %}"
+                                        {% if field.name != "remember" %}required{% endif %}
+                                    />
+                                    {% if field.name == "remember" %}
+                                    <label for="{{ field.id_for_label }}" >{{ field.label }}</label>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                                {% comment %}
+                                <div class="custom-control custom-checkbox mb-3">
+                                    <input id="customCheck1" type="checkbox" checked class="custom-control-input">
+                                    <label for="customCheck1" class="custom-control-label">Accept Terms and Conditions</label>
+                                </div>
+                                {% endcomment %}
+                                <button type="submit" class="btn btn-primary btn-block mb-2 rounded-pill shadow-sm text-white" style="background-color: rgb(82, 98, 138);">Log in</button>
+                                <div class="text-center d-flex justify-content-between mt-4"><p>Already have an account? <a href="{% url 'account_login' %}" class="font-italic text-muted"> 
+                                        <u>Log in here</u></a></p></div>
+                            </form>
+                        </div>
+                    </div>
+                </div><!-- End -->
+
+            </div>
+        </div><!-- End -->
+
+    </div>
+</div>
+
+{% endblock %}

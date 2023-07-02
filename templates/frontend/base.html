@@ -1,0 +1,164 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{% endblock %}EthStakers.club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="apple-touch-icon" sizes="57x57" href="{% static 'img/favicon/apple-icon-57x57.png' %}">
+    <link rel="apple-touch-icon" sizes="60x60" href="{% static 'img/favicon/apple-icon-60x60.png' %}">
+    <link rel="apple-touch-icon" sizes="72x72" href="{% static 'img/favicon/apple-icon-72x72.png' %}">
+    <link rel="apple-touch-icon" sizes="76x76" href="{% static 'img/favicon/apple-icon-76x76.png' %}">
+    <link rel="apple-touch-icon" sizes="114x114" href="{% static 'img/favicon/apple-icon-114x114.png' %}">
+    <link rel="apple-touch-icon" sizes="120x120" href="{% static 'img/favicon/apple-icon-120x120.png' %}">
+    <link rel="apple-touch-icon" sizes="144x144" href="{% static 'img/favicon/apple-icon-144x144.png' %}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{% static 'img/favicon/apple-icon-152x152.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-icon-180x180.png' %}">
+    <link rel="icon" type="image/png" sizes="192x192"  href="{% static 'img/favicon/android-icon-192x192.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'img/favicon/favicon-96x96.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'img/favicon/apple-icon-57x57.png' %}/manifest.json">
+    <meta name="msapplication-TileColor" content="#111a2e">
+    <meta name="msapplication-TileImage" content="{% static 'img/favicon//ms-icon-144x144.png' %}">
+    <meta name="theme-color" content="#111a2e">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        @media only screen and (max-width: 1280px) {
+            .sidebar {
+              position: fixed;
+              top: 0;
+              transform: translateX(-100%);
+            }
+        }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body>
+{% include 'frontend/header.html' %}
+{% block content %}{% endblock %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="{% static 'js/utility.js' %}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.6.2/js/bootstrap.min.js" integrity="sha512-7rusk8kGPFynZWu26OKbTeI+QPoYchtxsmPeBqkHIEXJxeun4yJ4ISYe7C6sz9wdxeE1Gk3VxsIWgCZTc+vX3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js" integrity="sha512-uMtXmF28A2Ab/JJO2t/vYhlaa/3ahUOgj1Zf27M5rOo8/+fcTUVH0/E0ll68njmjrLqOBjXM3V9NiPFL5ywWPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js" integrity="sha512-Wbf9QOX8TxnLykSrNGmAc5mDntbpyXjOw9zgnKql3DgQ7Iyr5TCSPWpvpwDuo+jikYoSNMD9tRRH854VfPpL9A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/11.7.12/sweetalert2.all.min.js" integrity="sha512-J8fMSsNsuWKj3xd1PRJ7M328sNj4jzUm2uYFI/spmO29rvGJvjsYXBTCun7OFCaRMeDowiEFGdXrkbBlCL5myw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+{% block script %}{% endblock %}
+
+<script>
+    var screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+
+    $(document).ready(function() {
+        var inputField = $('#main-search-autocomplete');
+        var resultList = $('#autoComplete_list_1');
+    
+        inputField.on('input', function() {
+        var query = inputField.val();
+        console.log(query)
+        if (query.length >= 1) {
+            $.ajax({
+            url: '/search-results/',
+            data: {
+                query: query
+            },
+            success: function(response) {
+                displayResults(response.results);
+                resultList.removeAttr('hidden');
+                resultList.fadeIn(500);
+            }
+            });
+        } else {
+            clearResults();
+        }
+        });
+
+        inputField.on('blur', function() {
+            clearResults();
+        });
+    
+        function displayResults(results) {
+        resultList.empty();
+        if (results.length > 0) {
+            $.each(results, function(index, result) {
+                var listItem = $('<li role="option" tabindex="0"></li>');
+                var link = $('<a></a>').attr('href', result.url).text(result.type + ": " + result.text);
+                listItem.append(link);
+                resultList.append(listItem);
+            });
+            resultList.show();
+        } else {
+            resultList.hide();
+        }
+        }
+    
+        function clearResults() {
+        resultList.empty();
+        resultList.hide();
+        }
+    });
+
+    $(document).ready(function() {
+        $("#navbar-toggler").click(function() {
+            $(".sidebar").toggleClass("show");
+            $("#search-group").toggleClass("show");
+            $("#navbarSupportedContent").toggleClass("show");
+        });
+    });
+
+    $(document).ready(function() {
+        $("#search-toggler").click(function() {
+            $(".sidebar").toggleClass("show");
+            $("#search-group").toggleClass("show");
+            $("#navbarSupportedContent").toggleClass("show");
+        });
+    });
+</script>
+
+<script>
+    function signout_user(){
+        Swal.fire({
+          title: 'Are you sure?',
+          text: "Do you really want to logout?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#d33',
+          cancelButtonColor: '#0284c7',
+          customClass: {
+            confirmButton: 'swal-delete-button',
+          },
+          showCloseButton: true,
+          confirmButtonText: 'Yes, logout!'
+        }).then((result) => {
+          if (result.isConfirmed) {
+                axios({
+                    url: "{% url 'account_logout' %}",
+                    method: 'post',
+                    data: {},
+                    dataType: 'json',
+                    contentType: "application/json",
+                    headers: {"X-CSRFToken": "{{ csrf_token }}"},
+                })
+                .then(function (data) {
+                    location.reload();
+                })
+                .catch(function (error) {
+                })
+            }
+        });
+    }
+    </script>
+</body>
+</html>

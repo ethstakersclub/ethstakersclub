@@ -1,0 +1,141 @@
+{% extends "frontend/base.html" %}
+{% load custom_filters %}
+
+{% block title %}Epoch #{{ epoch.epoch }} - {% endblock %}
+
+{% block head %}
+<style>
+body {
+    color: #ffffff;
+}
+h2 {
+    color: white;
+    margin-bottom: 20px;
+}
+table {
+    background-color: #111a2e;
+    border-collapse: collapse;
+    width: 100%;
+}
+th, td {
+    padding: 8px;
+    text-align: left;
+}
+th {
+    background-color: #111a2e;
+    color: #ddd;
+}
+.divider {
+    border-top:5px solid #0c1324;
+}
+th:first-child {
+    min-width: 200px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' %}
+    <div class="m-3" style="overflow-x: auto;">
+        <h2 class="mt-6 ml-1">Epoch #{{ epoch.epoch }}</h2>
+        <div>
+            <table>
+            <tr>
+                <th style="padding-top: 20px;"><i id="epoch-tooltip" class="far fa-question-circle question-tooltip"></i>Epoch</th>
+                <td style="padding-top: 20px;">{{ epoch.epoch }}</td>
+            </tr>
+            <tr>
+                <th><i id="finalized-tooltip" class="far fa-question-circle question-tooltip"></i>Finalized</th>
+                <td><span class="status-label rounded-pill px-2
+                {% if epoch.epoch <= finalized_epoch %}bg-success{% else %}bg-danger{% endif %}">
+                {% if epoch.epoch <= finalized_epoch %}Yes{% else %}No{% endif %}
+                </span></td>
+            </tr>
+            <tr>
+                <th><i id="timestamp-tooltip" class="far fa-question-circle question-tooltip"></i>Timestamp</th>
+                <td>{{ epoch.timestamp }}</td>
+            </tr>
+            <tr class="divider">
+                <th><i id="voting-participation-tooltip" class="far fa-question-circle question-tooltip"></i>Voting Participation</th>
+                <td>{{ epoch.participation_percent|floatformat:2 }}%</td>
+            </tr>
+            <tr>
+                <th><i id="missed-attestations-tooltip" class="far fa-question-circle question-tooltip"></i>Missed Attestations</th>
+                <td>{{ epoch.missed_attestation_count }}/{{ epoch.total_attestations }}</td>
+            </tr>
+            <tr>
+                <th><i id="proposed-blocks-tooltip" class="far fa-question-circle question-tooltip"></i>Proposed Blocks</th>
+                <td>{{ epoch.epoch_total_proposed_blocks }}</td>
+            </tr>
+            <tr>
+                <th><i id="average-block-reward-tooltip" class="far fa-question-circle question-tooltip"></i>Average Block Reward (MEV)</th>
+                <td>{{ epoch.average_block_reward|gweiToEth }} {{ currency_name }}</td>
+            </tr>
+            <tr class="divider">
+                <th><i id="active-validators-tooltip" class="far fa-question-circle question-tooltip"></i>Active Validators</th>
+                <td>{{ epoch.active_validators }}</td>
+            </tr>
+            <tr>
+                <th><i id="validator-status-tooltip" class="far fa-question-circle question-tooltip"></i>Validator Status</th>
+                <td>{% for key, value in epoch.validators_status_json.items %}
+                        {{ key }}: {{ value }}<br>
+                    {% endfor %}
+                </td>
+            </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+    tooltips = [
+                {
+                "id": "epoch",
+                "text": "An epoch is a larger unit of time, consisting of multiple slots. It represents a set of consecutive slots and serves as a reference point for network events and transitions."
+                },
+                {
+                "id": "finalized",
+                "text": "Finalized refers to the state of a block that has been confirmed and permanently added to the blockchain. Once a block is finalized, it cannot be reversed or altered."
+                },
+                {
+                "id": "timestamp",
+                "text": "The timestamp represents the exact date and time when the epoch started."
+                },
+                {
+                "id": "voting-participation",
+                "text": "Voting participation refers to the percentage of validators who actively participated in the voting process during this epoch."
+                },
+                {
+                "id": "missed-attestations",
+                "text": "Missed attestations refer to the number of instances where validators fail to successfully get their attestation included."
+                },
+                {
+                "id": "proposed-blocks",
+                "text": "Proposed blocks refers to the number of blocks successfully proposed during this epoch."
+                },
+                {
+                "id": "average-block-reward",
+                "text": "The average block reward is the average reward given to validators that proposed a block during this epoch."
+                },
+                {
+                "id": "active-validators",
+                "text": "Active validators refers to the number of validators that can participate in block validation and other consensus activities within this epoch."
+                },
+                {
+                "id": "validator-status",
+                "text": "Validator status refers to the current state of the validators in the network, indicating whether they are active, inactive, or pending activation or removal."
+                },
+               ]
+    tooltips.forEach((tooltip) => {
+        tippy(`#${tooltip.id}-tooltip`, {
+            placement: 'right',
+            arrow: true,
+            content: tooltip.text
+        });
+    });
+</script>
+{% endblock %}

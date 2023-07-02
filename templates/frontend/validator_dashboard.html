@@ -1,0 +1,1075 @@
+{% extends "frontend/base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}{% if not dashboard %}Validator #{{ validator_overview.0.validator_id }}{% else %}Dashboard{% endif %} - {% endblock %}
+
+{% block content %}
+<div id="app" class="h-100">
+<div class="modal fade" id="validatorModal" tabindex="-1" aria-labelledby="validatorModalLabel" aria-hidden="true" style="background: #ffffff1c;">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div id="add-validator-modal-body" class="modal-body text-left pt-4">
+        <div style="display: flex;align-items: center;">
+          <input type="text" class="form-control" id="validator-add-input" placeholder="Enter Validator ID or Public Key (comma-separated for bulk add)" style="flex-grow: 1;max-width: 100%;">
+        </div>
+        <ul class="search-result-area" role="listbox" hidden=""></ul>
+        <table-component :data="validatorAddJsonData" :columns="validatorAddTableColumns" :emptytext="'Search for a validator, then click on it to add it.'"
+        :emptyimage="'{% static 'img/pug2.png' %}'" :key-prop="'validator_id'" :allow-sort="false" />
+      </div>
+      <div class="modal-footer">
+        <p style="
+            color: white;
+            background: #52628a;
+            border-radius: 80px;
+            padding: 6px;
+            padding-left: 24px;
+            padding-right: 24px;
+        ">The current validator limit of {{ validator_monitoring_limit }} is just a random number, please open an issue on GitHub if you need more.</p>
+        <button type="button" data-dismiss="modal" class="btn btn-secondary" style="color: white;">Close</button>
+        <button type="button" class="btn btn-primary" onclick="submitValidator()" style="color: white;background-color: #3a4c73;">Save Validators</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class='dashboard-container'>
+  {% include 'frontend/sidebar.html' with current_page='dashboard' %}
+    {% if not dashboard %}
+  <div class="row m-0 mt-80 mt-xxl-0 mx-2 mx-sm-5 mb-1">
+    <div class="col-md-12">
+       <h1 style="font-size: 2rem;">Validator #{{ validator_info.validator_id }}</h1>
+        <p class="text-secondary" style="word-wrap: break-word;">{{ validator_info.public_key }}</p>
+    </div>
+  </div>
+    {% else %}
+    <div class="row m-0">
+      <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
+        <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
+          <div class="key-metrics">
+            <div class="small">Validators Online
+              <button type="button" class="btn btn-primary d-none d-xl-block" data-toggle="modal" data-target="#validatorModal" style="padding: 3px;position: absolute;top: 8px;right: 4px;background: #52628a;color: white;padding-left: 10px;padding-right: 10px;">Add more</button>
+            </div>{{ dashboard_head_data.active_validators }}
+          </div>
+          <div class="key-metrics">
+            <div class="small">Validators Queued</div>{{ dashboard_head_data.queued_validators }}</div>
+      
+      <div class="key-metrics">
+            <div class="small">Validators Exited</div>{{ dashboard_head_data.exited_validators }}</div>
+      <div class="key-metrics monitoring-rank" style="background: url(
+        {% if dashboard_head_data.active_validators <= 5 %}'/static/img/pug_l1.png');background-size: 130px
+      {% elif dashboard_head_data.active_validators <= 10 %}'/static/img/pug_l2.png');background-size: 130px
+      {% elif dashboard_head_data.active_validators <= 25 %}'/static/img/pug_l3.png');background-size: 120px
+      {% elif dashboard_head_data.active_validators <= 50 %}'/static/img/pug_l4.png');background-size: 130px
+      {% else %}'/static/img/pug_l5.png');background-size: 35%{% endif %}
+      ;background-repeat: no-repeat;background-position: right;">
+            <div class="small">Monitoring Rank</div>
+            {% if dashboard_head_data.active_validators <= 5 %}Fish
+            {% elif dashboard_head_data.active_validators <= 10 %}Dolphin
+            {% elif dashboard_head_data.active_validators <= 25 %}Shark
+            {% elif dashboard_head_data.active_validators <= 50 %}Whale
+            {% else %}Killer Whale{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="height: 30px;
+    width: 100%;
+    padding-right: 8px;">
+      <button type="button" class="btn btn-primary d-block d-xl-none" data-toggle="modal" data-target="#validatorModal" style="float: right;padding: 3px 10px;background: rgb(82, 98, 138);color: white;">Add more Validators</button>
+    </div>
+  </div>
+  {% endif %}
+
+
+
+  {% if validator_count > 0 and pending_validators and dashboard == False %}
+  <div class="row m-0 mt-2 mx-2 mx-sm-5 mb-2 timeline-area" style="padding: 8px;">
+      <div class="container pl-0 pr-0">
+        <ul class="timeline">
+          
+            <li class="timeline">
+              <div class="icon {% if validator_info.status == 'pending_initialized' %}working{% elif validator_info.status != 'unknown' %}done{% endif %}"></div>
+              <details class="panel">
+                <summary>
+                  <div>
+                  <i class="far fa-question-circle question-tooltip"></i>Deposit
+                  </div>
+                
+                </summary>
+                <p>To ensure that transactions never end up in a reorged block, the chain requires them to remain in the deposit contract for at least 2048 blocks. Additionally, 64 Epochs must pass before the beacon-chain acknowledges it. During these Epochs, validators vote on newly received deposits.</p>
+              </details>
+            </li>
+          
+            <li class="timeline">
+              <div class="icon {% if validator_info.status == 'pending_queued' %}working{% elif validator_info.status != 'pending_initialized' %}done{% endif %}"></div>
+              <details class="panel">
+                <summary>
+                  <i class="far fa-question-circle question-tooltip"></i>Pending
+                  {% if validator_info.status == 'pending_queued' %}
+                  <ul id="countdown" style="height: 80px;">
+                    <li><span id="countdown-days" class="days timenumbers">00</span>
+                        <p class="timeRefDays timedescription">days</p></li>
+                    <li><span id="countdown-hours" class="hours timenumbers">00</span>
+                        <p class="timeRefHours timedescription">hours</p></li>
+                    <li><span id="countdown-minutes" class="minutes timenumbers">00</span>
+                        <p class="timeRefMinutes timedescription">minutes</p></li>
+                    <li><span id="countdown-seconds" class="seconds timenumbers">00</span>
+                        <p class="timeRefSeconds timedescription">seconds</p></li>
+                  </ul>
+                  <p class="mb-0 ml-1 mt-0 pb-0"><span style="font-weight: 400;">Queue Position:</span> #{{ validator_info.pre_val|commaSeparatorNumber }}</p>
+                  <p class="mb-0 ml-1 mt-0 pb-0"><span style="font-weight: 400;">Validators Activated per Epoch:</span> {{ validator_info.validators_per_epoch }}</p>
+                  <p class="mb-0 ml-1 mt-1 pb-1" style="font-weight: 400;
+                  font-weight: 400;
+                  border-top: 1px solid #ffffff29;
+                  margin-top: 8px !important;
+                  padding-top: 8px;">To raise the count of validators added per epoch to {{ validator_info.validators_per_epoch|add:1 }}, <strong>{{ validator_info.next_increase_validators_per_epoch }}</strong> additional validators must be added.</p>
+                  {% endif %}              
+                </summary>
+                <p>The beacon-chain now has access to the deposit, but the validators need to wait in a queue. Currently, {{ validator_info.validators_per_epoch }} validators per Epoch are activated. However, this limit increases by one for every 65,536 active validators.</p>
+              </details>
+            </li>
+          
+            <li class="timeline">
+              <div class="icon {% if validator_info.status == 'active_ongoing' %}done{% endif %}"></div>
+              <details class="panel">
+                <summary>
+                  <i class="far fa-question-circle question-tooltip"></i>Active
+                </summary>
+                <p>The validator is actively staking at this point, participating in proposing blocks and signing attestations.</p>
+              </details>
+            </li>
+          
+            <li class="timeline">
+              <div class="icon"></div>
+              <details class="panel">
+                <summary>
+                  <i class="far fa-question-circle question-tooltip"></i>Exited
+                </summary>
+                <p>Currently, ten validators per Epoch can exit. Nevertheless, this limit increases by one for every 65,536 active validators.</p>
+              </details>
+            </li>
+          
+        </ul>
+    </div>
+  </div>
+  {% endif %}
+
+
+
+
+  {% if validator_count > 0 %}
+  {% if not pending_validators or dashboard == True %}
+  <div class="row m-0">
+    <div class="col-md-8 col-xxxl-9 px-xl-4 px-lg-2 px-md-0 px-sm-6">
+      <div class="linechart-element">
+        <canvas id="linechart"></canvas>
+      </div>
+    </div>
+    <div class="col-md-4 d-block col-xxxl-3 px-xl-4 px-lg-2 px-md-0 px-sm-6">
+      <div class="table-container dark-theme">
+        <p class="text-center font-weight-bold mb-0" style="font-size:120%">Summary</p>
+        <table class="table dark-dark">
+          <tbody>
+            {% if not dashboard %}
+            <tr>
+              <td>Status</td>
+              <td class="text-right">{{ validator_info.status }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+              <td>Last Day</td>
+              <td class="text-right {% if apy.0.total_reward >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.0.total_reward >= 0 %}+{% endif %}{{ apy.0.total_reward|floatformat:6 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td>Last Week</td>
+              <td class="text-right {% if apy.1.total_reward >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.1.total_reward >= 0 %}+{% endif %}{{ apy.1.total_reward|floatformat:6 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td>Last Month</td>
+              <td class="text-right {% if apy.2.total_reward >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.2.total_reward >= 0 %}+{% endif %}{{ apy.2.total_reward|floatformat:6 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td class="pb-0">Total Rewards</td>
+              <td class="text-right pb-0 {% if total_rewards.total_reward >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if total_rewards.total_reward >= 0 %}+{% endif %}{{ total_rewards.total_reward|floatformat:4 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td class="pb-0 pt-0" style="padding-left:32px">Execution</td>
+              <td class="text-right pb-0 pt-0">{% if total_rewards.total_execution_reward >= 0 %}+{% endif %}{{ total_rewards.total_execution_reward|floatformat:4 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td class="pt-0" style="padding-left:32px">Consensus</td>
+              <td class="text-right pt-0">{% if total_rewards.total_consensus_reward >= 0 %}+{% endif %}{{ total_rewards.total_consensus_reward|floatformat:4 }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+              <td class="pb-0">APY (week)</td>
+              <td class="text-right pb-0 {% if apy.1.apy >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.1.apy >= 0 %}+{% endif %}{{ apy.1.apy|floatformat:2 }}% p.a. ({{ apy.1.apy_sum|floatformat:1 }} {{ currency_name }})</td>
+            </tr>
+            <tr>
+              <td class="pb-0 pt-0" style="padding-left:32px">Execution</td>
+              <td class="text-right pb-0 pt-0">{{ apy.1.execution_apy|floatformat:2 }}% p.a. ({{ apy.1.execution_apy_sum|floatformat:1 }} {{ currency_name }})</td>
+            </tr>
+            <tr>
+              <td class="pt-0" style="padding-left:32px">Consensus</td>
+              <td class="text-right pt-0">{{ apy.1.consensus_apy|floatformat:2 }}% p.a. ({{ apy.1.consensus_apy_sum|floatformat:1 }} {{ currency_name }})</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class='row mx-0'>
+    <div class='piechart-element'>
+      <div class='piechart-label'>
+        <div class='label-heading'>Attestation Efficiency (100 epochs):</div>
+        <p class='small'>Current Average Efficiency: {{ average_attestation_efficiency|floatformat:2 }}%<br/>
+                         Total Attestations: {{ total_attestations }}
+      </div>
+      <div class='piechart-percent main-color'>{{ efficiency }}%</div>
+      <div class='piechart-container'>
+
+        <canvas id="piechart"></canvas>
+      </div>
+    </div>
+    <div class='piechart-element'>
+
+      <div class='piechart-label'>
+        <div class='label-heading'>Sync Committee:</div>
+        <p class='small'>
+                         Sync Committee Participations: {{ sync_participation_count }}<br/>
+                         Missed Sync Duties: {{ missed_sync_committee_duties }}/{{ sync_duty_count }}<br/><br/>
+                         Current: since {{ active_sync_validators.start_in }} for validator {{ active_sync_validators.validators }}<br/>
+                         Next: in {{ next_sync_validators.start_in }} for validator {{ next_sync_validators.validators }}
+                        </p>
+      </div>
+      <div class='piechart-percent main-color'>{{ sync_efficiency }}%</div>
+      <div class='piechart-container'>
+        <canvas id="piechart2"></canvas>
+      </div>
+
+    </div>
+    <div class='piechart-element'>
+      <div class='piechart-label'>
+        <div class='label-heading'>Block Proposals:</div>
+        <p class='small'>Total Proposals: {{ proposed_blocks_count }}/{{ block_count }}<br/>
+                         Average Reward: {{ average_execution_reward|floatformat:3 }} {{ currency_name }}<br/>
+                         Highest Reward: {{ highest_execution_reward|floatformat:3 }} {{ currency_name }}</p>
+      </div>
+      <div class='piechart-percent main-color'>{{ block_proposal_efficiency }}%</div>
+      <div class='piechart-container'>
+        <canvas id="piechart3"></canvas>
+      </div>
+
+    </div>
+  </div>
+  {% endif %}
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-xl-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Attestations</div>
+        <div>
+          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns"
+          :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :allow-sort="false" :key-prop="'slot'"
+          :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'"
+          :slot-range="{% if validator_count == 1 %}320{% elif validator_count < 3 %}160{% elif validator_count < 6 %}80{% elif validator_count < 11 %}40{% else %}32{% endif %}" />
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Block Proposals</div>
+        <div>
+          <table-component :data="blocksJsonData" :columns="blocksTableColumns" :allow-sort="true" :key-prop="'slot_number'" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Withdrawals</div>
+        <div>
+          <table-component :data="withdrawalsJsonData" :columns="withdrawalsTableColumns" :key-prop="'block__slot_number'"
+          :item-count="{{ withdrawals_count }}" :api-endpoint="'/api/withdrawals'" :allow-sort="false" :key-prop2="'validator'"
+          :query-parameters="[{validators: '{{ validator_array }}' }]" :fetch-strategy="'cursor'" />
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Sync Committee</div>
+        <div>
+          <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
+          :key-prop="'slot'" :allow-sort="false" :fetch-strategy="'slot_range'" :api-endpoint="'/api/sync_committee_participation'"
+          :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" />
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        {% if dashboard %}
+        <div class="element-header">Validator Overview</div>
+        <div>
+          <table-component :data="validatorOverviewJsonData" :columns="validatorOverviewTableColumns" :key-prop="'validator_id'" :allow-sort="true" />
+        </div>
+        {% else %}
+        <div class="element-header">Validator Overview</div>
+        <div>
+
+
+
+
+          <div class="table-container dark-theme mt-0 ml-2 mr-2">
+            <table class="table table-dark mb-0">
+              <tbody>
+                <tr>
+                  <td>
+                    Status
+                  </td>
+                  <td>
+                    <span class="status-label rounded-pill px-2 text-nowrap {% if validator_info.status == 'active_ongoing' %}bg-success{% else %}bg-primary{% endif %}">{{ validator_info.status }}</span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Balance
+                  </td>
+                  <td>
+                    {{ validator_info.balance }} {{ currency_name }}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Withdrawal Credentials
+                  </td>
+                  <td>
+                    {{ validator_info.w_cred_type }}
+                    <br>
+                    {{ validator_info.w_cred_address }}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Activation Eligibility Epoch
+                  </td>
+                  <td>
+                    {{ validator_info.activation_eligibility_epoch }}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Activation Epoch
+                  </td>
+                  <td>
+                    {{ validator_info.activation_epoch }}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Exit Epoch
+                  </td>
+                  <td>
+                    {{ validator_info.e_epoch }} {% if validator_info.e_epoch == 18446744073709551615 %}(unset){% endif %}
+                  </td>
+                </tr>
+
+                <tr>
+                  <td>
+                    Withdrawal Epoch
+                  </td>
+                  <td>
+                    {{ validator_info.w_epoch }} {% if validator_info.w_epoch == 18446744073709551615 %}(unset){% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+
+
+
+
+
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Reward History</div>
+        <div>
+          <table-component :data="rewardsPenaltiesJsonData" :columns="rewardsPenaltiesTableColumns" :allow-sort="false" :key-prop="'epoch'"
+          :item-count="100" :query-parameters="[{validators: '{{ validator_array }}' }]" :api-endpoint="'/api/rewards_and_penalties'"
+          :fetch-strategy="'slot_range'" :fetch-property="'epoch'" />
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class='element-header social'></div>
+  {% else %}
+
+  <div class="text-center">
+    <div>
+      <img src="{% static 'img/pug1.png' %}" style="max-width: 400px; margin: 0 auto;width:50%;">
+      <br>
+      {% if user.is_authenticated %}
+        <button type="button" data-toggle="modal" data-target="#validatorModal" style="background-color: #52628a;" class="btn btn-primary text-white">Add validators to monitor them here</button>
+      {% else %}
+        <div>
+          <a type="button" href="{% url 'account_signup' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Sign up to monitor your validators here</a>
+          <br><br><span style="color: #ffffffa1;">or</span><br>
+          <a type="button" href="{% url 'account_login' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Login</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% endif %}
+  
+</div>
+</div>
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+
+{% if validator_count > 0 and pending_validators and dashboard == False %}
+<script>
+  var countdownSeconds = {{ validator_info.seconds_till_activation }};
+  
+  var countDownDate = new Date().getTime() + (countdownSeconds * 1000);
+  
+  var x = setInterval(function() {
+    var now = new Date().getTime();
+    var distance = countDownDate - now;
+  
+    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+    
+    $("#countdown-days").html(days);
+    $("#countdown-hours").html(hours);
+    $("#countdown-minutes").html(minutes);
+    $("#countdown-seconds").html(seconds);
+  
+    if (distance < 0) {
+      clearInterval(x);
+      document.getElementById("demo").innerHTML = "EXPIRED";
+    }
+  }, 1000);
+</script>
+{% endif %}
+
+
+<script>
+  const App = {
+    data() {
+      return {
+        {% if validator_count > 0 %}
+        attestationsJsonData: [],
+        attestationsTableColumns: [
+          { key: 'epoch', label: 'Epoch' },
+          { key: 'slot', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + item.slot;
+            },
+          },
+          { key: 'block_timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          {% if dashboard %}
+          { key: 'validator_id', label: 'Validator ID' },
+          {% endif %}
+          { key: 'distance', label: 'Distance',
+            renderFunction: (value, item) => {
+              return value != 255 ? value : '-'
+            },
+          },
+          { key: 'status', label: 'Status',
+            renderFunction: (value, item) => {
+              return item.distance == 255 ? calculateTimeDifferenceSeconds(item.block_timestamp) > 200 ? 'Missed' : 'Scheduled' : 'Attested'
+            },
+            renderClass: (value, item) => {
+              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-danger': item.distance === 255 && timeDifference > 200,
+                'bg-primary': item.distance === 255 && timeDifference <= 200,
+                'bg-success': item.distance !== 255,
+              };
+            },
+          },
+        ],
+        blocksJsonData: [],
+        blocksTableColumns: [
+          { key: 'slot_number', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + item.slot_number;
+            },
+          },
+          { key: 'block_number', label: 'Block'},
+          { key: 'fee_recipient', label: 'Recipient',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+          },
+          { key: 'total_reward', label: 'Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(4) + " {{ currency_name }}";
+            },
+            renderClass: (value, item) => {
+              return {
+                'text-lightgreen': value > 0,
+              };
+            },
+          },
+          { key: 'mev_boost_relay', label: 'MEV Relay',
+            renderFunction: (value, item) => {
+              if(value != null){
+                let out = "";
+                for (let i = 0; i < value.length; i++) {
+                  if(value[i] == "Agnostic Relay")
+                    out += "Agnostic";
+                  else if(value[i] == "ultra sound relay")
+                    out += "Ultra-Sound";
+                  else if(value[i] == "BloXroute Max Profit")
+                    out += "BloXroute MP"
+                  else
+                    out += value[i];
+                  if (i !== value.length - 1) {
+                    out += ", ";
+                  }
+                }
+                return elideStringBack(out == "" ? "None" : out);
+              }
+              return "None";
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2 font-size-80 text-nowrap': true,
+                'bg-info': value != null && value.length > 0,
+                'bg-primary': value == null || value.length <= 0,
+              };
+            },
+          },
+          { key: 'timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              let time_diff = calculateTimeDifference(value);
+              return time_diff;
+            },
+          },
+        ],
+        withdrawalsJsonData: [],
+        withdrawalsTableColumns: [
+          { key: 'block__slot_number', label: 'Slot', 
+            link: (value, item) => {
+              return '/slot/' + item.block__slot_number;
+            },
+          },
+          { key: 'validator', label: 'Validator',
+            link: (value, item) => {
+              return '/validator/' + item.validator;
+            },
+          },
+          { key: 'address', label: 'Recipient',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+          },
+          { key: 'amount', label: 'Amount',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'block__timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+        ],
+        rewardsPenaltiesJsonData: [],
+        rewardsPenaltiesTableColumns: [
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'total_reward', label: 'Reward',
+            renderFunction: (value, item) => {
+              val_formatted =  value.toLocaleString().replace(/\./g, ',');
+              return (value > 0 ? "+" + val_formatted : val_formatted) + " GWei"
+            },
+          },
+          { key: 'attestations', label: 'Attestet',
+            renderFunction: (value, item) => {
+              percent = value / {{ validator_count }} * 100;
+              return ("Attestet (" + parseInt(percent) + "%)")
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-success': (value / {{ validator_count }} * 100) >= 95,
+                'bg-warning': (value / {{ validator_count }} * 100) >= 60 && (value / {{ validator_count }} * 100) < 95,
+                'bg-danger': (value / {{ validator_count }} * 100) < 60,
+              };
+            },
+          },
+        ],
+        dashboardSyncCommitteeParticipationsJsonData: [],
+        dashboardSyncCommitteeParticipationsTableColumns: [
+          { key: 'period', label: 'Period' },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'slot', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + item.slot;
+            },
+          },
+          { key: 'participated', label: 'Participated',
+            renderFunction: (value, item) => {
+              return value == "yes" ? "Participated" : value == "no" ? "Missed" : item.slot > ({{ current_slot }} - 2) ? "Pending" : "No Block Proposed"
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-success': value == "yes",
+                'bg-danger': value == "no",
+                'bg-primary': value == "no_block_proposed",
+              };
+            },
+          },
+        ],
+        validatorOverviewJsonData: [],
+        validatorOverviewTableColumns: [
+          { key: 'public_key', label: 'Public Key',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+          },
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + item.validator_id;
+            },
+          },
+          { key: 'status', label: 'Status' },
+          { key: 'efficiency', label: 'Efficiency',
+            renderFunction: (value, item) => {
+              return value/100 + "%"
+            },
+          },
+          { key: 'blocks', label: 'Blocks'},
+          { key: 'reward', label: 'Total Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+        ],
+        {% endif %}
+        validatorAddJsonData: [],
+        validatorAddTableColumns: [
+          { key: 'validator_id', label: 'Validator ID',
+            renderClass: (value, item) => {
+              return {
+                'font-weight-bold': item.new === true,
+              };
+            },
+          },
+          { key: 'public_key', label: 'Public Key',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+            renderClass: (value, item) => {
+              return {
+                'font-weight-bold': item.new === true,
+              };
+            },
+          },
+          { key: 'status', label: 'Status',
+            renderClass: (value, item) => {
+              return {
+                'font-weight-bold': item.new === true,
+              };
+            },
+          },
+          { key: 'new', label: '',
+            renderFunction: (value, item) => {
+              return "";
+            },
+            onClickFunction: (value, item) => {
+              const index = this.validatorAddJsonData.findIndex(_item => _item.validator_id === item.validator_id);
+              if (index !== -1) {
+                this.validatorAddJsonData.splice(index, 1);
+                console.log("Element removed from the array:", item.validator_id);
+              } else {
+                console.log("Element not found in the array:", item.validator_id);
+              }
+            },
+            renderClass: (value, item) => {
+              return {
+                'fa-solid fa-trash cursor': true,
+              };
+            },
+          },
+        ],
+
+      };
+    },
+    mounted() {
+      {% if validator_count > 0 %}
+      this.attestationsJsonData = JSON.parse('[]');
+      this.blocksJsonData = JSON.parse('{{ blocks|safe }}');
+      this.withdrawalsJsonData = JSON.parse('{{ withdrawals|safe }}');
+      this.rewardsPenaltiesJsonData = JSON.parse('[]');
+      this.dashboardSyncCommitteeParticipationsJsonData = JSON.parse('[]');
+      this.validatorOverviewJsonData = JSON.parse('{{ validator_overview|safe }}');
+      {% endif %}
+      this.validatorAddJsonData = JSON.parse('{{ validator_overview|safe }}');
+      for(let i = 0;i<this.validatorAddJsonData.length;i++)
+        this.validatorAddJsonData["new"] = false;
+    },
+    methods: {
+      addValidatorAddData(data) {
+        if (!this.validatorAddJsonData.some(item => item.validator_id === data.validator_id)) {
+          this.validatorAddJsonData.unshift(data);
+          console.log("Element added to the array:", data.validator_id);
+        } else {
+          console.log("Element already exists in the array:", data.validator_id);
+        }
+      },
+      getValidatorAddData() {
+        return this.validatorAddJsonData;
+      },
+    }
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  const root = app.mount("#app");
+  
+{% if validator_count > 0 %}
+Chart.defaults.borderColor = '#ffffff07';
+Chart.defaults.color = '#ddd';
+var ctx = document.getElementById("linechart").getContext("2d");
+var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+gradient.addColorStop(1, 'green');
+gradient.addColorStop(0, 'orange');
+
+const data = {
+  labels: [],
+  datasets: [
+    {
+      label: 'Missed Attestations',
+      data: [],
+      borderColor: function(context) {
+        var index = context.dataIndex;
+        var value = context.dataset.data[index];
+        var max = Math.max(...context.dataset.data);
+        var color = gradient;
+
+        if (value === max) {
+          color = 'orange';
+        }
+        
+        return color;
+      },
+      tension: 0.4,
+      type: 'line',
+      yAxisID: 'y2',
+      borderWidth: 1.5,
+      pointRadius: 1,
+      pointStyle: false,
+    },
+    {
+      label: 'Consensus Reward',
+      data: [],
+      borderColor: "rgb(54, 162, 235)",
+      backgroundColor: "#163a5f",
+    },
+    {
+      label: 'Execution Reward',
+      data: [],
+      borderColor: "rgb(153, 102, 255)",
+      backgroundColor: "#362c66",
+      yAxisID: 'y',
+    },
+  ]
+};
+
+const dataList = JSON.parse('{{ chart_data | safe }}');
+
+// Extracting data from the list
+dataList.forEach(item => {
+  data.labels.push(item.date);
+  data.datasets[1].data.push(parseFloat(item.balance_change)); // Consensus data
+  data.datasets[2].data.push(parseFloat(item.execution_reward_change)); // Execution data
+  data.datasets[0].data.push(parseInt(item.missed_attestations_change)); // Missed attestation data
+});
+
+
+var lineChart = new Chart(ctx, {
+  type: 'bar',
+  data: data,
+  options: {
+    plugins: {
+      title: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+
+            if (label) {
+                label += ': ';
+            }
+            if (context.parsed.y !== null) {
+                if(context.dataset.yAxisID != "y2")
+                  label += context.parsed.y.toFixed(6);
+                else
+                  label += context.parsed.y;
+            }
+            return label;
+          }
+        }
+      }
+    },
+    elements: {
+      bar: {
+        borderWidth: 2,
+      }
+    },
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        stacked: true,
+        //title: {
+        //  display: true,
+        //  text: 'Time (UTC)'
+        //}
+      },
+      y: {
+        stacked: true,
+        //title: {
+        //  display: true,
+        //  text: 'Reward'
+        //}
+      },
+      y2: {
+        type: 'linear',
+        position: 'right',
+        ticks: {
+          //color: "rgb(63, 152, 155)"
+        },
+        grid: {
+          drawOnChartArea: false
+        },
+        //title: {
+        //  display: true,
+        //  text: 'Missed Attestations'
+        //}
+      }
+    }
+  }
+});
+
+const data_efficiency = {
+  labels: ['Efficiency', 'Efficiency'],
+  datasets: [
+    {
+      data: [{{ efficiency }}, {{ efficiency_lag }}],
+      backgroundColor: ["#264b71", "#CE6735"],
+      label: "Percent"
+    }
+  ]
+};
+
+var ctx = document.getElementById("piechart").getContext("2d");
+var efficiencyChart = new Chart(ctx, {
+  type: 'doughnut',
+  data: data_efficiency,
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      }
+    },
+    cutout: "80%",
+  },
+});
+
+const data_blocks_chart = {
+  labels: ['Proposed', 'Missed'],
+  datasets: [
+    {
+      data: [{{ block_proposal_efficiency }}, {{ block_proposal_efficiency_lag }}],
+      backgroundColor: ["#264b71", "#CE6735"],
+      label: "Percent"
+    }
+  ]
+};
+
+var ctx = document.getElementById("piechart3").getContext("2d");
+var efficiencyChart = new Chart(ctx, {
+  type: 'doughnut',
+  data: data_blocks_chart,
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      }
+    },
+    cutout: "80%",
+  },
+});
+
+const data_sync_chart = {
+  labels: ['Participated', 'Missed'],
+  datasets: [
+    {
+      {% if sync_duty_completed_count > 0 %}
+      data: [{{ sync_duty_completed_count }}, {{ missed_sync_committee_duties }}],
+      {% else %}
+      data: [{{ 1 }}, {{ 0 }}],
+      {% endif %}
+      backgroundColor: ["#264b71", "#CE6735"],
+      label: "Duties"
+    }
+  ]
+};
+
+var ctx = document.getElementById("piechart2").getContext("2d");
+var efficiencyChart = new Chart(ctx, {
+  type: 'doughnut',
+  data: data_sync_chart,
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      title: {
+        display: false,
+      }
+    },
+    cutout: "80%",
+  },
+});
+
+{% endif %}
+
+  validators_add = [];
+  $(document).ready(function() {
+      var inputField = $('#validator-add-input');
+      var resultList = $('#results-validator-add-area');
+  
+      inputField.on('input', function() {
+        var query = inputField.val();
+        if (query.length >= 1) {
+            $.ajax({
+            url: '/search-validator-results/',
+            data: {
+                query: query
+            },
+            success: function(response) {
+                displayResults(response.results, response.array);
+                resultList.removeAttr('hidden');
+                resultList.fadeIn(500);
+            }
+            });
+        } else {
+            clearResults();
+        }
+      });
+
+      //inputField.on('blur', function() {
+      //    clearResults();
+      //});
+  
+      function displayResults(results, isArray) {
+        resultList.empty();
+        if (results.length > 0) {
+            if(!isArray){
+              $.each(results, function(index, result) {
+                  var listItem = $('<li role="option" tabindex="0"></li>');
+                  var click_item = $('<p></p>').text("Validator" + ": " + result.text);
+
+                  var handleClick = function() {
+                    root.addValidatorAddData(result);
+                  };
+
+                  click_item.click(handleClick);
+
+                  listItem.append(click_item);
+                  resultList.append(listItem);
+              });
+            }
+            else{
+                var listItem = $('<li role="option" tabindex="0"></li>');
+                var click_item = $('<p></p>').text("Add " + String(results.length) + " Validators");
+
+                var handleClick = function() {
+                  $.each(results, function(index, result) {
+                    root.addValidatorAddData(result);
+                  });
+                };
+
+                click_item.click(handleClick);
+
+                listItem.append(click_item);
+                resultList.append(listItem);
+            }
+            resultList.show();
+        } else {
+            resultList.hide();
+        }
+      }
+  
+      function clearResults() {
+        resultList.empty();
+        resultList.hide();
+      }
+  });
+
+  function submitValidator(){
+    console.log(root.getValidatorAddData().map(item => item.validator_id))
+    axios({
+      url: "{% url 'save_watched_validators' %}",
+      method: 'post',
+      data: {
+          validator_ids: root.getValidatorAddData().map(item => item.validator_id),
+      },
+      dataType: 'json',
+      contentType: "application/json",
+      headers: {"X-CSRFToken": "{{ csrf_token }}"},
+    })
+    .then(function (data) {
+      location.reload();
+    })
+    .catch(function (error) {
+      console.error(error);
+    });
+  }
+</script>
+{% endblock %}

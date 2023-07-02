@@ -1,0 +1,184 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Epochs - {% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='epochs' %}
+  <div class="m-0">
+    <div class="linechart-element mt-6">
+      <canvas id="linechart"></canvas>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Epochs</div>
+        <div>
+          <table-component :data="epochsJsonData" :columns="epochsTableColumns" :rows-per-page-options="[50]"
+          :item-count="{{ current_epoch }}" :api-endpoint="'/api/epochs'" :allow-sort="false" :key-prop="'epoch'"
+          :fetch-property="'epoch'" :fetch-strategy="'slot_range'" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        epochsJsonData: [],
+        epochsTableColumns: [
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'total_attestations', label: 'Missed Attestations',
+            renderFunction: (value, item) => {
+                return String(item.missed_attestation_count) + "/" + String(value);
+            },
+          },
+          { key: 'average_block_reward', label: 'Average Block Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'epoch', label: 'Finalized',
+            renderFunction: (value, item) => {
+              return value <= {{ finalized_epoch }} ? "Yes" : "No";
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value <= {{ finalized_epoch }},
+                'bg-warning': value > {{ finalized_epoch }},
+              };
+            },
+          },
+          { key: 'participation_percent', label: 'Voted',
+            renderFunction: (value, item) => {
+                return value.toFixed(2) + "%";
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.epochsJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+  var ctx = document.getElementById("linechart").getContext("2d");
+  var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, 'green');
+  gradient.addColorStop(1, 'orange');
+  
+  const data = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Participation Rate',
+        data: [],
+        borderColor: function(context) {
+          var index = context.dataIndex;
+          var value = context.dataset.data[index];
+          var max = Math.max(...context.dataset.data);
+          var color = gradient;
+  
+          if (value === max) {
+            color = 'orange';
+          }
+          
+          return color;
+        },
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+        pointRadius: 1,
+        pointStyle: false,
+      },
+    ]
+  };
+  
+  const dataList = JSON.parse('{{ participation_percent_epoch | safe }}');
+  
+  dataList.forEach(item => {
+    data.labels.push(item.epoch);
+    data.datasets[0].data.push(parseFloat(item.participation_percent));
+  });
+  
+  var attestationLineChart = new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+  
+              if (label) {
+                  label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                  if(context.dataset.yAxisID != "y2")
+                    label += context.parsed.y.toFixed(6);
+                  else
+                    label += context.parsed.y;
+              }
+              return label;
+            }
+          }
+        }
+      },
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          ticks: {
+          },
+          grid: {
+            drawOnChartArea: false
+          },
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

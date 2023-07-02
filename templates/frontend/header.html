@@ -1,0 +1,61 @@
+{% load static %}
+{% load custom_filters %}
+
+<nav class="navbar navbar-dark navbar-expand-lg navbar-primary" data-selector="navbar" id="top-navbar" style="background-color: rgb(40, 41, 69);">
+  <div class="container-fluid navbar-container">
+<a class="navbar-brand" data-test="header_logo" href="/">
+
+        <img class="navbar-logo" id="navbar-logo" src="{% static 'img/logo.png' %}" alt="EthStakers Club" style="margin-right: 10px; max-height: 40px;max-width: 25px; filter: brightness(0) invert(1);">
+        <div style="display: flex; flex-direction: column;">
+          <span class="header-top-logo-text">EthStakers</span>
+          <span style="font-size: 18px;line-height: 1.1;">.club</span>
+        </div>
+
+{% comment %}
+<div class="bs-label testnet-label ml-2">
+Testnet
+</div>
+{% endcomment %}
+
+<div class="ml-4 epoch-slot"><span class="mr-2">Epoch: <span class="font-weight-bold" style="">{{ current_epoch|commaSeparatorNumber }}</span></span><br><span>Slot: <span class="font-weight-bold" style="">{{ current_slot|commaSeparatorNumber }}</span></span></div>
+
+</a>
+<div class="navbar-toggler-group">
+<button style="background: none;border: none;" id="search-toggler">
+	<svg viewBox="0 0 16 17" xmlns="http://www.w3.org/2000/svg" width="16" height="17">
+		<path fill="#fff" fill-rule="evenodd" d="M15.713 15.727a.982.982 0 0 1-1.388 0l-2.289-2.29C10.773 14.403 9.213 15 7.5 15A7.5 7.5 0 1 1 15 7.5c0 1.719-.602 3.284-1.575 4.55l2.288 2.288a.983.983 0 0 1 0 1.389zM7.5 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11z"></path>
+	</svg>
+</button>
+    <button id="navbar-toggler" class="navbar-toggler" type="button">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+</div>
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+<div class="search-form d-lg-flex d-inline-block mobile-search-hide" id="search-group">
+	<div class="input-group" style="width: 100%;" title="Search by public key, validator id or slot number">
+		<div class="form-control search-control me auto mobile-search-hide">
+			<div class="autoComplete_wrapper" role="combobox" aria-owns="autoComplete_list_1" aria-haspopup="true" aria-expanded="false">
+				<input id="main-search-autocomplete" class="main-search-autocomplete" type="text" tabindex="1" placeholder="Search by public key, validator id or slot number" style="background-color: rgb(34, 34, 58); border-color: rgb(34, 34, 58);">
+				<ul id="autoComplete_list_1" role="listbox" hidden=""></ul>
+			</div>
+		</div>
+		<div class="input-group-append left">
+			<button class="input-group-text" id="search-icon">
+				<svg viewBox="0 0 16 17" xmlns="http://www.w3.org/2000/svg" width="16" height="17">
+					<path fill="#7DD79F" fill-rule="evenodd" d="M15.713 15.727a.982.982 0 0 1-1.388 0l-2.289-2.29C10.773 14.403 9.213 15 7.5 15A7.5 7.5 0 1 1 15 7.5c0 1.719-.602 3.284-1.575 4.55l2.288 2.288a.983.983 0 0 1 0 1.389zM7.5 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11z"></path>
+				</svg>
+			</button>
+		</div>
+		<div class="input-group-append right desktop-only">
+			<div id="slash-icon" class="input-group-text border" data-placement="bottom" data-toggle="tooltip" title="" data-original-title="Press / and focus will be moved to the search field" data-template="<div class='tooltip tooltip-pale-color' role='tooltip'><div class='arrow'></div><div class='tooltip-inner'></div></div>">
+			/
+			</div>
+		</div>
+	</div>
+	<button class="btn btn-outline-success my-2 my-sm-0 sr-only hidden" type="submit">Search</button>
+</div>
+    </div>
+  </div>
+
+</nav>

@@ -1,0 +1,186 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Dashboard - Sync Live Minitoring - {% endblock %}
+
+{% block head %}
+<style>
+  .dark-theme table.table th,
+  .dark-theme table.table td {
+    border: none;
+    padding: 2px;
+    font-size:80%;
+    padding-left: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='sync_live_monitoring' %}
+  <div class="m-0">
+    <div class="linechart-element mt-6">
+      <canvas id="linechart"></canvas>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2 mt-1" style="background: #111a2e;">
+    <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Sync-Committee - Live Monitoring</div>
+        <div>
+            <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
+            :key-prop="'slot'" :allow-sort="false" fetch-strategy="slot_range" :api-endpoint="'/api/sync_committee_participation'"
+            :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" :rows-per-page-options="[50]"
+            :live-update="true" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        dashboardSyncCommitteeParticipationsJsonData: [],
+        dashboardSyncCommitteeParticipationsTableColumns: [
+          { key: 'period', label: 'Period' },
+          { key: 'epoch', label: 'Epoch' },
+          { key: 'slot', label: 'Slot' },
+          { key: 'validator_id', label: 'Validator ID' },
+          { key: 'block_timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'participated', label: 'Participated',
+            renderFunction: (value, item) => {
+              return value == "yes" ? "Participated" : value == "no" ? "Missed" : item.slot > ({{ current_slot }} - 2) ? "Pending" : "No Block Proposed"
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value == "yes",
+                'bg-danger': value == "no",
+                'bg-primary': value == "no_block_proposed",
+              };
+            },
+          },
+          { key: 'participation', label: 'Participation',
+            renderFunction: (value, item) => {
+              return value + "/512"
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.dashboardSyncCommitteeParticipationsJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+  var ctx = document.getElementById("linechart").getContext("2d");
+  var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(1, 'green');
+  gradient.addColorStop(0, 'orange');
+  
+  const data = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Missed Sync Duties',
+        data: [],
+        borderColor: function(context) {
+          var index = context.dataIndex;
+          var value = context.dataset.data[index];
+          var max = Math.max(...context.dataset.data);
+          var color = gradient;
+  
+          if (value === max) {
+            color = 'orange';
+          }
+          
+          return color;
+        },
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+        pointRadius: 1,
+        pointStyle: false,
+      },
+    ]
+  };
+  
+  const dataList = JSON.parse('{{ chart_data | safe }}');
+  
+  dataList.forEach(item => {
+    data.labels.push(item.date);
+    data.datasets[0].data.push(parseInt(item.missed_sync_change)); // Missed sync data
+  });
+  
+  var attestationLineChart = new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+  
+              if (label) {
+                  label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                  if(context.dataset.yAxisID != "y2")
+                    label += context.parsed.y.toFixed(6);
+                  else
+                    label += context.parsed.y;
+              }
+              return label;
+            }
+          }
+        }
+      },
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          ticks: {
+          },
+          grid: {
+            drawOnChartArea: false
+          },
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

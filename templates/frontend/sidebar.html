@@ -1,0 +1,49 @@
+<div class='sidebar'>
+    <div class='navigation-elm {% if current_page == "dashboard" %}navigation-elm-active{% endif %}'><a href="{% url 'dashboard_empty' %}" class='nav-text'><i class="fa fa-fw fa-area-chart"></i><span class='text-short'>
+        <a href="{% url 'dashboard_empty' %}" class='nav-text'>Dashboard</a></span></a>
+    </div>
+    <div class='sub-navigation-elm {% if current_page == "attestation_live_monitoring" %}navigation-elm-active{% endif %}'><i class="fas fa-fw fa-file-signature"></i><a href="{% url 'attestation_live_monitoring_empty' %}" class='nav-text'>Attestation Live Monitoring</a></div>
+    <div class='sub-navigation-elm {% if current_page == "sync_live_monitoring" %}navigation-elm-active{% endif %}'><i class="fas fa-fw fa-file-signature"></i><a href="{% url 'sync_live_monitoring_empty' %}" class='nav-text'>Sync Duty Live Monitoring</a></div>
+    
+    <div class='navigation-elm {% if current_page == "slots" %}navigation-elm-active{% endif %}'><a href="{% url 'show_slots' %}" class='nav-text'><i class="fas fa-fw fa-layer-group"></i><span class='text-short'>Slots</span> </a>
+    </div>
+    <div class='navigation-elm {% if current_page == "epochs" %}navigation-elm-active{% endif %}'><a href="{% url 'show_epochs' %}" class='nav-text'><i class="fas fa-fw fa-shield-alt"></i><span class='text-short'>Epochs</a></span>
+    </div>
+    <div class='navigation-elm {% if current_page == "validators" %}navigation-elm-active{% endif %}'><a href="{% url 'show_validators' %}" class='nav-text'><i class="fas fa-fw fa-hdd"></i><span class='text-short'>Validators</a></span>
+    </div>
+    <div class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</span></span>
+    </div>
+    {% if not user.is_authenticated %}
+    <div style="text-align: center;margin: 20px;">
+        <a href="{% url 'account_signup' %}" style="background: #52628a;padding: 10px;width: 100%;display: inline-block;border-radius: 50px;cursor: pointer;border-bottom:none;">
+            Signup
+        </a>
+    </div>
+    {% else %}
+    <div class="w-auto relative" id="logout_area" style="flex: 1;vertical-align: bottom;display: flex;flex-direction: column-reverse;">
+        <div class="w-100" style="align-self: self-end;">
+            <button onclick="$('#logout_box').toggle()" class="w-100 btn text-white logout-button">
+                <div><span>Logout</span></div>
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="feather feather-chevron-down ml-auto">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+
+
+            <div style="display:none" id="logout_box" class="pl-3 pr-3 mb-3">
+                <button class="w-100 p-3 btn text-white rounded-pill" style="background-color: #22293f;" onclick="signout_user()"> Log Out {{ request.user.email }}</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>

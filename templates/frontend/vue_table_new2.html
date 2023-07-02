@@ -1,0 +1,408 @@
+{% load static %}
+
+{% verbatim %}
+<template id="table-component">
+  <div class="table-container dark-theme mt-0 ml-2 mr-2">
+    <table class="table table-dark mb-0">
+      <thead>
+        <tr>
+          <th v-for="column in columns" :key="column.key" @click="sortTable(column.key)">
+            {{ column.label }} <i v-if="allowSort" class="fa-solid fa-sort cursor"></i>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in paginatedData" :key="generateKey(item)">
+          <td v-for="column in columns" :key="column.key">
+            <span v-if="typeof column.link != 'function'" :class="renderClass(item, column)">
+              {{ renderColumnValue(item, column) }}
+            </span>
+            <a v-else :href="renderLink(item, column)" :class="renderClass(item, column)">
+              {{ renderColumnValue(item, column) }}
+            </a>
+          </td>
+        </tr>
+        <tr v-if="paginatedData.length == 0" style="text-align: center;
+            color: #ccc;
+            font-style: italic;
+            padding-bottom: 10px;
+            padding-bottom: 0px;">
+            <td colspan="10" class="empty-table-message" style="text-align: center;color: #ccc;font-style: italic;padding: 10px;/*! display: flex; *//*! flex-direction: column; *//*! align-items: center; *//*! justify-content: center; */padding-bottom: 0px;">
+                <img :src="emptyimage" width="156" height="156">
+                <p>{{ emptytext }}</p>
+            </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pagination-container" v-if="showPagination">
+      <div class="pagination-info">
+        <div v-if="rowsPerPageOptions.length > 1" class="pagination-dropdown">
+          <label for="rowsPerPage" class="mb-0">Rows per page:</label>
+          <select id="rowsPerPage" v-model="itemsPerPage">
+            <option v-for="option in rowsPerPageOptions" :value="option" :key="option">
+              {{ option }}
+            </option>
+          </select>
+        </div>
+        <div class="pagination-count">
+          {{ paginationCount }}
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-button" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <button class="pagination-button" :disabled="currentPage === totalPages" @click="goToPage(currentPage + 1)">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+{% endverbatim %}
+<script>
+  const tableComponent = {
+    template: '#table-component',
+    props: {
+      data: {
+        type: Array,
+        required: true,
+      },
+      columns: {
+        type: Array,
+        required: true,
+      },
+      rowsPerPageOptions: {
+        type: Array,
+        default: () => [5],
+      },
+      itemCount: {
+        type: Number,
+        default: null,
+      },
+      apiEndpoint: {
+        type: String,
+        default: "",
+      },
+      allowSort: {
+        type: Boolean,
+        default: true,
+      },
+      keyProp: {
+        type: String,
+        required: true
+      },
+      keyProp2: {
+        type: String,
+        default: null,
+      },
+      removeOldData: {
+        type: Boolean,
+        default: false,
+      },
+      queryParameters: {
+        type: Object,
+        default: [],
+      },
+      fetchStrategy: {
+        type: String,
+        default: 'slot',
+      },
+      slotRange: {
+        type: Number,
+        default:320,
+      },
+      liveUpdate: {
+        type: Boolean,
+        default: false,
+      },
+      fetchProperty: {
+        type: String,
+        default: 'slot',
+      },
+      emptytext: {
+        type: String,
+        default: () => "Nothing but a pug here yet.",
+      },
+      emptyimage: {
+        type: String,
+        default: () => "{% static 'img/pug1.png' %}",
+      },
+      showPagination: {
+        type: Boolean,
+        default: true,
+      },
+    },
+    data() {
+      const defaultItemsPerPage = this.rowsPerPageOptions[0] || 5;
+      return {
+        sortKey: '',
+        sortOrder: 1,
+        currentPage: 1,
+        itemsPerPage: defaultItemsPerPage,
+        combinedData: [], // Initialize combinedData as an empty array updating in watcher
+        paginationStartIndex: 0,
+        intervalId: null,
+        isLiveUpdating: false,
+      };
+    },
+    watch: {
+      data: {
+        immediate: true,
+        deep: true,
+        handler (newData) {
+          this.combinedData = [...newData];
+          this.goToPage(1);
+        }
+      }
+    },
+    mounted() {
+      if (this.liveUpdate) {
+        // Start the interval when the site is in focus
+        window.addEventListener('focus', this.startInterval);
+    
+        // Stop the interval when the site is not in focus
+        window.addEventListener('blur', this.stopInterval);
+
+        this.startInterval();
+      }
+    },
+    beforeUnmount() {
+      window.removeEventListener('focus', this.startInterval);
+      window.removeEventListener('blur', this.stopInterval);
+      this.stopInterval();
+    },
+    computed: {
+      sortedData() {
+        if(!this.allowSort){
+          return [...this.combinedData];
+        }
+        const data = [...this.combinedData]; // Create a copy of the data
+
+        if (this.sortKey) {
+          data.sort((a, b) => {
+            const valueA = a[this.sortKey];
+            const valueB = b[this.sortKey];
+            return (valueA - valueB) * this.sortOrder;
+          });
+        }
+
+        return data;
+      },
+      paginatedData() {
+        currentPageNum = this.currentPage - this.paginationStartIndex;
+        const startIndex = (currentPageNum - 1) * this.itemsPerPage;
+        const endIndex = startIndex + this.itemsPerPage;
+
+        page_content = this.sortedData.slice(startIndex, endIndex);
+        
+        return page_content;
+      },
+      totalPages() {
+        const maxSlotNumber = Math.max(...this.combinedData.map(item => item[this.fetchProperty]));
+        if (this.itemCount !== null) {
+          return Math.ceil(this.itemCount / this.itemsPerPage);
+        }
+        else if (maxSlotNumber > this.itemCount) {
+          return Math.ceil(maxSlotNumber / this.itemsPerPage);
+        } else {
+          return Math.ceil(this.sortedData.length / this.itemsPerPage);
+        }
+      },
+      totalItems(){
+        const maxSlotNumber = Math.max(...this.combinedData.map(item => item[this.fetchProperty]));
+        total_items = 0;
+        if (this.itemCount !== null) {
+            total_items = this.itemCount;
+        }
+        else if (maxSlotNumber > this.itemCount) {
+            total_items = maxSlotNumber;
+        } else {
+            total_items = this.sortedData.length;
+        }
+        return total_items;
+      },
+      paginationCount() {
+        const startIndex = (this.currentPage - 1) * this.itemsPerPage + 1;
+        const endIndex = Math.min(this.currentPage * this.itemsPerPage, this.itemCount || this.sortedData.length);
+
+        total_items = this.totalItems;
+
+        return `${startIndex}-${endIndex} of ${total_items}`;
+      },
+    },
+    methods: {
+      intervalFunction() {
+        if(this.liveUpdate && this.currentPage == 1){
+          this.isLiveUpdating = true;
+          this.fetchMoreData('head', 1, true);
+        }
+      },
+      startInterval() {
+        this.stopInterval();
+        
+        this.isLiveUpdating = true;
+        this.intervalId = setInterval(() => {
+          this.intervalFunction();
+        }, 12000);
+      },
+      stopInterval() {
+        this.isLiveUpdating = false;
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+          this.intervalId = null;
+        }
+      },
+      generateKey(item) {
+        if(this.keyProp2 == null)
+            return item[this.keyProp]
+        else
+            return String(item[this.keyProp])+ "-" +String(item[this.keyProp2])
+        },
+      sortTable(key) {
+        if(this.allowSort){
+            if (this.sortKey === key) {
+            this.sortOrder *= -1;
+            } else {
+            this.sortKey = key;
+            this.sortOrder = 1;
+            }
+        }
+      },
+      goToPage(pageNumber) {
+        if(this.fetchingData)
+            return;
+
+        if(this.apiEndpoint == ""){
+          if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+            this.currentPage = pageNumber;
+          }
+        }
+        else{
+            if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+                if(this.removeOldData)
+                    this.fetchMoreData(pageNumber).then(() => {
+                        this.currentPage = pageNumber;
+                    });
+            }
+            if(!this.removeOldData)
+                if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+                    currentPageNum = pageNumber - this.paginationStartIndex;
+                    const startIndex = (currentPageNum - 1) * this.itemsPerPage;
+                    const endIndex = startIndex + this.itemsPerPage;
+                    page_content = this.sortedData.slice(startIndex, endIndex);
+
+                    if(page_content.length < this.itemsPerPage && this.totalItems > this.combinedData.length){             
+                        next_index = 'head'
+                        if(this.sortedData.length > 0){
+                            next_index = this.sortedData[this.sortedData.length - 1][this.fetchProperty];
+                        }
+                        this.fetchMoreData(next_index, pageNumber).then(() => {
+                            this.currentPage = pageNumber;
+                        });
+                    }
+                    else
+                        this.currentPage = pageNumber;
+                }
+        }
+      },
+      getColumnValue(item, key) {
+        if (item.hasOwnProperty(key)) {
+          return item[key];
+        }
+        return '-';
+      },
+      renderColumnValue(item, column) {
+        if (typeof column.renderFunction === 'function') {
+          return column.renderFunction(this.getColumnValue(item, column.key), item);
+        }
+        return this.getColumnValue(item, column.key);
+      },
+      renderClass(item, column) {
+        if (typeof column.renderClass === 'function') {
+          return column.renderClass(this.getColumnValue(item, column.key), item);
+        }
+        return "";
+      },
+      renderLink(item, column) {
+        if (typeof column.link === 'function') {
+          return column.link(this.getColumnValue(item, column.key), item);
+        }
+        return "";
+      },
+      async fetchMoreData(next_index, pageNumber, replaceOldData=false) {
+        this.fetchingData = true;
+        try {
+          const currentDataCount = this.combinedData.length;
+          let additionalParameters = {};
+          
+          if(this.fetchStrategy == 'slot'){
+            let minSlotNumber = 'head';
+            let maxSlotNumber = 0;
+            if(this.combinedData.length > 0 && replaceOldData==false){
+                maxSlotNumber = Math.max(...this.combinedData.map(item => item[this.fetchProperty]));
+                minSlotNumber = Math.min(...this.combinedData.map(item => item[this.fetchProperty]));
+            }
+            additionalParameters = {
+                to_slot: minSlotNumber != 'head' ? minSlotNumber - 1 : minSlotNumber,
+                from_slot: minSlotNumber != 'head' ? minSlotNumber - 1 - this.slotRange : 0,
+            };
+          }
+          else if(this.fetchStrategy == 'slot_range'){
+            let minSlotNumber = 'head';
+            if(currentDataCount > 0 && replaceOldData==false){
+                minSlotNumber = Math.min(...this.combinedData.map(item => item[this.fetchProperty]));
+            }
+            if(this.fetchProperty == "slot" || this.fetchProperty == "slot_number")
+              additionalParameters = {
+                  from_slot: minSlotNumber != 'head' ? minSlotNumber - 1 : minSlotNumber,
+                  range: this.itemsPerPage,
+              };
+            else if(this.fetchProperty == "epoch")
+              additionalParameters = {
+                  from_epoch: minSlotNumber != 'head' ? minSlotNumber - 1 : minSlotNumber,
+                  range: this.itemsPerPage,
+              };
+          }
+          else if(this.fetchStrategy == 'cursor'){
+            directionValue = 'descending';
+            cursorValue = (this.itemsPerPage * (pageNumber - 1));
+        
+            additionalParameters = {
+                range: this.itemsPerPage,
+                cursor: cursorValue,
+                direction: directionValue,
+            };
+          }
+                    
+          const params = {};
+          this.queryParameters.forEach((param) => {
+            const [key, value] = Object.entries(param)[0];
+            params[key] = String(value);
+          });
+
+          Object.assign(params, additionalParameters);
+
+          const response = await axios.get(this.apiEndpoint, {
+            params,
+          });
+      
+          const newData = response.data.data;
+                
+          if(this.removeOldData || replaceOldData){
+            this.paginationStartIndex = pageNumber - 1;
+            this.combinedData = [...newData];
+          }
+          else{
+            this.combinedData = this.combinedData.concat(newData);
+          }      
+        } catch (error) {
+          console.error('Error fetching more data:', error);
+        }
+        this.fetchingData = false;
+      }
+    },
+  };
+</script>

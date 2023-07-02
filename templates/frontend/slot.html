@@ -1,0 +1,218 @@
+{% extends "frontend/base.html" %}
+{% load custom_filters %}
+
+{% block title %}Slot #{{ slot.slot_number }} - {% endblock %}
+
+{% block head %}
+<style>
+body {
+    color: #ffffff;
+}
+h2 {
+    color: white;
+    margin-bottom: 20px;
+}
+table {
+    background-color: #111a2e;
+    border-collapse: collapse;
+    width: 100%;
+}
+th, td {
+    padding: 8px;
+    text-align: left;
+}
+th {
+    background-color: #111a2e;
+    color: #ddd;
+}
+.divider {
+    border-top:5px solid #0c1324;
+}
+th:first-child {
+    min-width: 200px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' %}
+    <div class="m-3" style="overflow-x: auto;">
+        <h2 class="mt-6 ml-1">Slot #{{ slot.slot_number }}</h2>
+        <div>
+            <table>
+            <tr>
+                <th style="padding-top: 20px;"><i id="slot-tooltip" class="far fa-question-circle question-tooltip"></i>Slot</th>
+                <td style="padding-top: 20px;">{{ slot.slot_number }}</td>
+            </tr>
+            <tr>
+                <th><i id="epoch-tooltip" class="far fa-question-circle question-tooltip"></i>Epoch</th>
+                <td>{{ slot.epoch }}</td>
+            </tr>
+            <tr>
+                <th><i id="block-number-tooltip" class="far fa-question-circle question-tooltip"></i>Block Number</th>
+                <td>{{ slot.block_number }}</td>
+            </tr>
+            <tr>
+                <th><i id="status-tooltip" class="far fa-question-circle question-tooltip"></i>Status</th>
+                <td><span class="status-label rounded-pill px-2
+                {% if slot.empty == 0 %}bg-success{% elif slot.empty == 1 %}bg-danger{% elif slot.empty == 2 %}bg-warning{% elif slot.empty == 3 %}bg-primary{% endif %}">
+                {% if slot.empty == 0 %}Proposed{% elif slot.empty == 1 %}Not Proposed{% elif slot.empty == 2 %}Orphaned{% elif slot.empty == 3 %}Not Processed Yet{% endif %}
+                </span></td>
+            </tr>
+            <tr>
+                <th><i id="timestamp-tooltip" class="far fa-question-circle question-tooltip"></i>Timestamp</th>
+                <td>{{ slot.timestamp }}</td>
+            </tr>
+            <tr class="divider">
+                <th><i id="proposer-tooltip" class="far fa-question-circle question-tooltip"></i>Proposer</th>
+                <td><a href="/validator/{{ slot.proposer }}">{{ slot.proposer }}</a></td>
+            </tr>
+            <tr>
+                <th><i id="reward-recipient-tooltip" class="far fa-question-circle question-tooltip"></i>Reward Recipient</th>
+                <td>{% if slot.mev_reward_recipient != "" %}{{ slot.mev_reward_recipient }}{% else %}{{ slot.fee_recipient }}{% endif %}</td>
+            </tr>
+            <tr>
+                <th><i id="reward-tooltip" class="far fa-question-circle question-tooltip"></i>Reward</th>
+                <td>{{ slot.total_reward }} {{ currency_name }}</td>
+            </tr>
+            <tr>
+                <th><i id="mev-relay-tooltip" class="far fa-question-circle question-tooltip"></i>MEV Relay</th>
+                <td>{% for s in slot.mev_boost_relay %}<span class="status-label rounded-pill px-2 bg-info mr-1">{{ s }}</span>{% endfor %}{% if slot.mev_boost_relay|length == 0 %}<span class="status-label rounded-pill px-2 bg-primary">None</span>{% endif %}</td>
+            </tr>
+            <tr>
+                <th><i id="graffiti-tooltip" class="far fa-question-circle question-tooltip"></i>Graffiti</th>
+                <td>{{ slot.graffiti }}</td>
+            </tr>
+            <tr class="divider">
+                <th><i id="block-root-tooltip" class="far fa-question-circle question-tooltip"></i>Block Root</th>
+                <td>{{ slot.block_root }}</td>
+            </tr>
+            <tr>
+                <th><i id="parent-root-tooltip" class="far fa-question-circle question-tooltip"></i>Parent Root</th>
+                <td>{{ slot.parent_root }}</td>
+            </tr>
+            <tr>
+                <th><i id="state-root-tooltip" class="far fa-question-circle question-tooltip"></i>State Root</th>
+                <td>{{ slot.state_root }}</td>
+            </tr>
+            <tr style="line-break: anywhere;">
+                <th><i id="signature-tooltip" class="far fa-question-circle question-tooltip"></i>Signature</th>
+                <td>{{ slot.signature }}</td>
+            </tr>
+            <tr style="line-break: anywhere;">
+                <th><i id="randao-reveal-tooltip" class="far fa-question-circle question-tooltip"></i>RANDAO Reveal</th>
+                <td>{{ slot.randao_reveal }}</td>
+            </tr>
+            <tr class="divider">
+                <th><i id="block-hash-tooltip" class="far fa-question-circle question-tooltip"></i>Block Hash</th>
+                <td>{{ slot.block_hash }}</td>
+            </tr>
+            <tr>
+                <th><i id="deposit-count-tooltip" class="far fa-question-circle question-tooltip"></i>Deposit Count</th>
+                <td>{{ slot.deposit_count }}</td>
+            </tr>
+            <tr>
+                <th><i id="transactions-tooltip" class="far fa-question-circle question-tooltip"></i>Transactions</th>
+                <td>{{ slot.transaction_count }}</td>
+            </tr>
+            <tr>
+                <th style="padding-bottom: 20px;"><i id="burned-fees-tooltip" class="far fa-question-circle question-tooltip"></i>Burned fees</th>
+                <td style="padding-bottom: 20px;">{{ slot.burnt_fee|weiToEth }} {{ currency_name }}</td>
+            </tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+    tooltips = [
+        {
+          "id": "slot",
+          "text": "A slot refers to a fixed unit of time, during which a block is produced by a validator in the Proof-of-Stake (PoS) consensus mechanism."
+        },
+        {
+          "id": "epoch",
+          "text": "An epoch is a larger unit of time, consisting of multiple slots. It represents a set of consecutive slots and serves as a reference point for network events and transitions."
+        },
+        {
+          "id": "block-number",
+          "text": "The block helps to track the order and sequence of blocks produced."
+        },
+        {
+          "id": "status",
+          "text": "The status provides information about whether a block is finalized or not."
+        },
+        {
+          "id": "timestamp",
+          "text": "The timestamp represents the exact date and time when a block was produced."
+        },
+        {
+          "id": "proposer",
+          "text": "The proposer is the validator responsible for creating and proposing a specific block during a given slot."
+        },
+        {
+          "id": "reward-recipient",
+          "text": "The reward recipient refers to the address that receives the block rewards earned by the validator who proposed the block."
+        },
+        {
+          "id": "reward",
+          "text": "The reward indicates the amount earned by the validator for proposing a block. Includes MEV rewards and transaction fees."
+        },
+        {
+          "id": "mev-relay",
+          "text": "MEV stands for 'Maximal Extractable Value,' which represents the additional value that validators can capture through including, excluding or reordering transactions. The MEV relay indicates whether any MEV relay way used."
+        },
+        {
+          "id": "graffiti",
+          "text": "Graffiti is an arbitrary message or data field that validators can include in a block as a means of communication or personalization. It does not affect the functionality or consensus of the network."
+        },
+        {
+          "id": "block-root",
+          "text": "The block root is the hash tree root of the Beacon Block."
+        },
+        {
+          "id": "parent-root",
+          "text": "The parent root refers to the hash tree root of the previous block."
+        },
+        {
+          "id": "state-root",
+          "text": "The state root is the hash tree root of the Beacon State."
+        },
+        {
+          "id": "signature",
+          "text": "The signature is a cryptographic proof generated by the proposer to validate their authority over a particular block. It ensures the block's authenticity and prevents tampering."
+        },
+        {
+          "id": "randao-reveal",
+          "text": "The RANDAO reveal is the random number produced by a validator and helps determine duties such as block proposers or committee assignments."
+        },
+        {
+          "id": "block-hash",
+          "text": "The block hash is the unique identifier generated by hashing the entire contents of a block. It is commonly used for reference, verification, and identification purposes."
+        },
+        {
+          "id": "deposit-count",
+          "text": "The deposit count indicates the total number of deposits made until this block. Deposits are essential for validators to participate in the PoS consensus."
+        },
+        {
+          "id": "transactions",
+          "text": "Transactions refer to the activities or operations recorded within a block. They represent the movement of cryptocurrency, smart contract interactions, or other data changes."
+        },
+        {
+          "id": "burned-fees",
+          "text": "Burned fees are transaction fees destroyed or removed from circulation. This mechanism helps reduce the supply."
+        }
+    ]
+    tooltips.forEach((tooltip) => {
+        tippy(`#${tooltip.id}-tooltip`, {
+            placement: 'right',
+            arrow: true,
+            content: tooltip.text
+        });
+    });
+</script>
+{% endblock %}

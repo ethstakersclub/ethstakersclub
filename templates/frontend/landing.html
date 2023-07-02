@@ -1,0 +1,293 @@
+{% extends "frontend/base.html" %}
+{% load custom_filters %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' %}
+  <div class="row m-0">
+    <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
+      <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
+        
+        <div class="key-metrics landing-key-metrics col-6 col-md-3">
+          <div class="small">Validators Activation Queue</div>{{ pending_validators|commaSeparatorNumber }}
+        </div>
+
+        <div class="key-metrics landing-key-metrics col-6 col-md-3">
+          <div class="small">Approximate time to finish activation queue</div>{{ finish_activation_queue_time }}
+        </div>
+    
+        <div class="key-metrics landing-key-metrics col-6 col-md-3">
+          <div class="small">Validators Exiting Queue</div>{{ exiting_validators|commaSeparatorNumber }}
+        </div>
+
+        <div class="key-metrics landing-key-metrics col-6 col-md-3">
+          <div class="small">Approximate time to finish exit queue</div>{{ finish_exit_queue_time }}
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <div class="m-0">
+    <div class="linechart-element mt-1">
+      <canvas id="linechart"></canvas>
+    </div>
+  </div>
+
+
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+
+    <div class="col-12 col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+        <div class="stats-element">
+          <div class="element-header">Most Recent Epochs</div>
+          <div>
+            <table-component :data="epochsJsonData" :columns="epochsTableColumns" :rows-per-page-options="[15]"
+            :item-count="15" :api-endpoint="'/api/epochs'" :allow-sort="false" :key-prop="'epoch'"
+            :fetch-property="'epoch'" :fetch-strategy="'slot_range'" :show-pagination="false" :live-update="true" />
+          </div>
+        </div>
+      </div>
+
+    <div class="col-12 col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Most Recent Slots</div>
+        <div>
+          <table-component :data="blocksJsonData" :columns="blocksTableColumns" :rows-per-page-options="[15]"
+          :item-count="15" :api-endpoint="'/api/blocks'" :allow-sort="false" :key-prop="'slot_number'"
+          :fetch-strategy="'slot_range'" :fetch-property="'slot_number'" :show-pagination="false" :live-update="true" />
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        blocksJsonData: [],
+        blocksTableColumns: [
+          { key: 'slot_number', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + item.slot_number;
+            },
+          },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+                return '/epoch/' + value;
+            },
+          },
+          { key: 'block_number', label: 'Block Number' },
+          { key: 'proposer', label: 'Proposer' },
+          { key: 'total_reward', label: 'Total Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'empty', label: 'Status',
+            renderFunction: (value, item) => {
+              if(value == 0)
+                return "Proposed";
+              else if(value == 1)
+                return "Not Proposed";
+              else if(value == 2)
+                return "Orphaned";
+              else if(value == 3)
+                return "Not Processed Yet";
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value == 0,
+                'bg-danger': value == 1,
+                'bg-warning': value == 2,
+                'bg-primary': value == 3,
+              };
+            },
+          },
+          { key: 'timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+        ],
+        epochsJsonData: [],
+        epochsTableColumns: [
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+                return '/epoch/' + value;
+            },
+          },
+          { key: 'timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'total_attestations', label: 'Missed Attestations',
+            renderFunction: (value, item) => {
+                return String(item.missed_attestation_count) + "/" + String(value);
+            },
+          },
+          { key: 'average_block_reward', label: 'Average Block Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'epoch', label: 'Finalized',
+            renderFunction: (value, item) => {
+              return value <= {{ finalized_epoch }} ? "Yes" : "No";
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value <= {{ finalized_epoch }},
+                'bg-warning': value > {{ finalized_epoch }},
+              };
+            },
+          },
+          { key: 'participation_percent', label: 'Voted',
+            renderFunction: (value, item) => {
+                return value.toFixed(2) + "%";
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.blocksJsonData = JSON.parse('[]');
+      this.epochsJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+  var ctx = document.getElementById("linechart").getContext("2d");
+  
+  const data = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Active Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Exited Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Pending Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Exiting Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+    ]
+  };
+  
+  const dataList = JSON.parse('{{ validators_chart_data | safe }}');
+  
+  dataList.forEach(item => {
+    data.labels.push(item.hour);
+    data.datasets[0].data.push(parseFloat(item.average_active_validators));
+    data.datasets[1].data.push(parseFloat(item.average_exited_validators));
+    data.datasets[2].data.push(parseFloat(item.average_pending_validators));
+    data.datasets[3].data.push(parseFloat(item.average_exiting_validators));
+  });
+  
+  var validatorLineChart = new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: false
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+  
+              if (label) {
+                  label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += parseInt(context.parsed.y);
+              }
+              return label;
+            }
+          }
+        }
+      },
+      radius: 0,
+      clip: false,
+      hover: {
+        mode: 'index',
+        intersect: false,
+      },
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          type: 'timeseries',
+          time: {
+            unit: 'day',
+            displayFormat: { 'day': "YYYY-MM-DD HH:mm" }
+          },
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          ticks: {
+          },
+          grid: {
+            drawOnChartArea: false
+          },
+        },
+      }
+    }
+  });
+</script>
+{% endblock %}

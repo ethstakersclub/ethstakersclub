@@ -1,0 +1,236 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Slots - {% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='slots' %}
+  <div class="row m-0" style="padding-top:80px;">
+    <div class="linechart-element col-md-9">
+      <canvas id="linechart"></canvas>
+    </div>
+    <div class="col-md-3 col-12 mb-1">
+      <canvas style="max-width:400px;max-height:400px;margin:auto;" id="piechart"></canvas>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Slots</div>
+        <div>
+          <table-component :data="blocksJsonData" :columns="blocksTableColumns" :rows-per-page-options="[50]"
+          :item-count="{{ current_slot }}" :api-endpoint="'/api/blocks'" :allow-sort="false" :key-prop="'slot_number'"
+          :fetch-strategy="'slot_range'" :fetch-property="'slot_number'" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        blocksJsonData: [],
+        blocksTableColumns: [
+          { key: 'slot_number', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + item.slot_number;
+            },
+          },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'block_number', label: 'Block Number' },
+          { key: 'proposer', label: 'Proposer' },
+          { key: 'total_reward', label: 'Total Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'empty', label: 'Status',
+            renderFunction: (value, item) => {
+              if(value == 0)
+                return "Proposed";
+              else if(value == 1)
+                return "Not Proposed";
+              else if(value == 2)
+                return "Orphaned";
+              else if(value == 3)
+                return "Not Processed Yet";
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value == 0,
+                'bg-danger': value == 1,
+                'bg-warning': value == 2,
+                'bg-primary': value == 3,
+              };
+            },
+          },
+          { key: 'timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.blocksJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+  var ctx = document.getElementById("linechart").getContext("2d");
+  var gradient = ctx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, 'green');
+  gradient.addColorStop(1, 'orange');
+  
+  const data = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Average Block (MEV) Reward',
+        data: [],
+        borderColor: function(context) {
+          var index = context.dataIndex;
+          var value = context.dataset.data[index];
+          var max = Math.max(...context.dataset.data);
+          var color = gradient;
+  
+          if (value === max) {
+            color = 'orange';
+          }
+          
+          return color;
+        },
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+    ]
+  };
+  
+  const dataList = JSON.parse('{{ avg_rewards_slots | safe }}');
+  
+  dataList.forEach(item => {
+    data.labels.push(item.hour);
+    data.datasets[0].data.push(parseFloat(item.average_reward));
+  });
+  
+  var attestationLineChart = new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: false
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+  
+              if (label) {
+                  label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                  if(context.dataset.yAxisID != "y2")
+                    label += context.parsed.y.toFixed(6);
+                  else
+                    label += context.parsed.y;
+              }
+              return label;
+            }
+          }
+        }
+      },
+      radius: 0,
+      clip: false,
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      hover: {
+        mode: 'index',
+        intersect: false,
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          type: 'timeseries',
+          time: {
+            unit: 'day',
+            displayFormat: { 'day': "YYYY-MM-DD HH:mm" }
+          },
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          ticks: {
+          },
+          grid: {
+            drawOnChartArea: false
+          },
+        }
+      }
+    }
+  });
+
+
+
+  const data_average_by_hour = {
+    labels: [{% for a in average_by_hour %}"{{ a.label }}",{% endfor %}],
+    datasets: [
+      {
+        data: [{% for a in average_by_hour %}{{ a.median }},{% endfor %}],
+        backgroundColor: [{% for a in average_by_hour %}"{{ a.color }}",{% endfor %}],
+        label: "Reward"
+      }
+    ]
+  };
+  
+  var ctx = document.getElementById("piechart").getContext("2d");
+  var efficiencyChart = new Chart(ctx, {
+    type: 'pie',
+    data: data_average_by_hour,
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Median block (MEV) reward by hour of the day (UTC)'
+        }
+      },
+      cutout: "70%",
+    },
+  });
+</script>
+{% endblock %}

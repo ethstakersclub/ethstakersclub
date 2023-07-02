@@ -1,0 +1,205 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Validator Overview - {% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='validators' %}
+  <div class="m-0">
+    <div class="linechart-element mt-6">
+      <canvas id="linechart"></canvas>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Validators</div>
+        <div>
+          <table-component :data="validatorJsonData" :columns="validatorTableColumns" :rows-per-page-options="[50]"
+          :item-count="{{ validator_count }}" :api-endpoint="'/api/validators'" :allow-sort="false" :key-prop="'validator_id'"
+          :fetch-strategy="'cursor'" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class='element-header social'></div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table_new2.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        validatorJsonData: [],
+        validatorTableColumns: [
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + item.validator_id;
+            },
+          },
+          { key: 'public_key', label: 'Public Key',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+          },
+          { key: 'balance', label: 'Balance',
+            renderFunction: (value, item) => {
+              return value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'status', label: 'Status',
+            renderFunction: (value, item) => {
+              return value;
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2': true,
+                'bg-success': value == "active_ongoing",
+                'bg-warning': value != "active_ongoing",
+              };
+            },
+          },
+          { key: 'activation_epoch', label: 'Activation Epoch'},
+          { key: 'reward', label: 'Total Reward',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+          },
+          { key: 'efficiency', label: 'Efficiency',
+            renderFunction: (value, item) => {
+              return value.toFixed(2) + "%";
+            },
+          },
+        ],
+      };
+    },
+    mounted() {
+      this.validatorJsonData = JSON.parse('[]');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+  var ctx = document.getElementById("linechart").getContext("2d");
+  
+  const data = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Active Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Exited Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Pending Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+      {
+        label: 'Exiting Validators',
+        data: [],
+        tension: 0.4,
+        type: 'line',
+        yAxisID: 'y2',
+        borderWidth: 1.5,
+      },
+    ]
+  };
+  
+  const dataList = JSON.parse('{{ validators_chart_data | safe }}');
+  
+  dataList.forEach(item => {
+    data.labels.push(item.timestamp);
+    data.datasets[0].data.push(parseFloat(item.average_active_validators));
+    data.datasets[1].data.push(parseFloat(item.average_exited_validators));
+    data.datasets[2].data.push(parseFloat(item.average_pending_validators));
+    data.datasets[3].data.push(parseFloat(item.average_exiting_validators));
+  });
+  
+  var validatorLineChart = new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: false
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+  
+              if (label) {
+                  label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += context.parsed.y;
+              }
+              return label;
+            }
+          }
+        }
+      },
+      radius: 0,
+      clip: false,
+      hover: {
+        mode: 'index',
+        intersect: false,
+      },
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          type: 'timeseries',
+          time: {
+            unit: 'day',
+            displayFormat: { 'day': "YYYY-MM-DD HH:mm" }
+          },
+        },
+        y2: {
+          type: 'linear',
+          position: 'right',
+          ticks: {
+          },
+          grid: {
+            drawOnChartArea: false
+          },
+        },
+      }
+    }
+  });
+</script>
+{% endblock %}
