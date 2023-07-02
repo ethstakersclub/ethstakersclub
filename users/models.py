@@ -4,7 +4,6 @@ from django.conf import settings
 from django.contrib.auth.models import UserManager
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.postgres.fields import ArrayField
 
 
 class CustomUserManager(UserManager):
@@ -41,7 +40,6 @@ class CustomUser(AbstractUser):
 
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    #watched_validators = ArrayField(models.IntegerField(), default=[])
     watched_validators = models.CharField(max_length=4200, default="")
 
 

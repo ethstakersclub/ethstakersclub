@@ -3,65 +3,35 @@ from datetime import datetime, timedelta
 import requests
 from ethstakersclub.settings import BEACON_API_ENDPOINT
 import requests
-from web3 import Web3
-import asyncio
 import json
 import requests
-from websockets import connect
-from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, EXECUTION_WS_API_ENDPOINT, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
-    EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, GENESIS_TIME, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP
+from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
+    EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP
 import requests
-from blockfetcher.models import Main, Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
+from blockfetcher.models import Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
-from web3.beacon import Beacon
 import decimal
 from itertools import islice
-from threading import Thread
 from concurrent.futures import ThreadPoolExecutor, wait
 from threading import Lock
-import concurrent.futures
-from datetime import datetime, timedelta
+from datetime import datetime
 import binascii
 from django.db.models import Sum
 from django.utils import timezone
 import time
-from django.db import transaction, DatabaseError, OperationalError
 import traceback
-from django.db.models import Min, Q, Count, Func, F
-import random
+from django.db.models import Q, Count, Func, F
 import logging
 from django.core.cache import cache
 import gc
-from collections import defaultdict
 from collections import Counter
 import timeout_decorator
 from blockfetcher.beacon_api import BeaconAPI
+from django.db import transaction
 
 
 beacon = BeaconAPI(BEACON_API_ENDPOINT)
 logger = logging.getLogger(__name__)
-
-
-@shared_task
-def handle_new_block(block_data):
-    # This function will be called whenever a new block arrives
-
-    block_number = block_data['params']['result']['number']
-    block_number = int(block_number, 16)
-    # timestamp hash parentHash baseFeePerGas gasLimit gasUsed miner
-    print(f"New block arrived! Block number: {str(block_number)}")
-
-    url = BEACON_API_ENDPOINT + '/eth/v1/beacon/rewards/attestations/' + str(block_number)
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-    data = '[]'
-
-    response = requests.post(url, headers=headers, data=data)
-
-    print(response.status_code)
-    print(response.json())
 
 
 @shared_task(bind=True, soft_time_limit=25, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
@@ -129,27 +99,31 @@ def update_validators_task(self, slot):
         self.retry(countdown=5)
 
 
+@shared_task(bind=True, soft_time_limit=960, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+def make_balance_snapshot_task(self, slot, timestamp):
+    try:
+        make_balance_snapshot(slot, timestamp)
+    except Exception as e:
+        logger.warning("An error occurred while updating the validators %s.", slot, exc_info=True)
+        self.retry(countdown=5)
+
+
 def fetch_mev_rewards(lowest_slot, cursor_slot):
+    logger.info("Fetch MEV rewards  lowest_slot=%s cursor_slot=%s", lowest_slot, cursor_slot)
+
     all_rewards = {}
     for key, value in MEV_BOOST_RELAYS.items():
         retry_count = 0
         while retry_count < 3:
             try:
-                print(key)
-                print(value)
-
                 sl = cursor_slot
                 while sl >= lowest_slot:
-                    print(sl)
-
                     url = value + "/relay/v1/data/bidtraces/proposer_payload_delivered?limit=100&cursor=" + str(sl)
                     rewards = requests.get(url).json()
 
                     if len(rewards) == 0:
                         sl = -1
                         break
-                    
-                    print(len(rewards))
 
                     for r in rewards:
                         if int(r["slot"]) < lowest_slot:
@@ -164,8 +138,7 @@ def fetch_mev_rewards(lowest_slot, cursor_slot):
                             sl = int(r["slot"]) - 1
                 break
             except Exception as e:
-                print("An error occurred:", e)
-                print(value)
+                logger.warning(f"An error occurred ({value}):", e)
                 retry_count += 1
 
     blocks_to_update = []
@@ -182,25 +155,8 @@ def fetch_mev_rewards(lowest_slot, cursor_slot):
 
 @transaction.atomic
 def make_balance_snapshot(slot, timestamp):
-    '''
-    url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/" + str(slot)
-    timestamp = requests.get(url).json()["data"]["message"]["body"]["execution_payload"]["block_hash"]
-    timestamp = timezone.make_aware(datetime.fromtimestamp(timestamp), timezone=timezone.utc)
-
-    do_snapshot = False
-    with transaction.atomic():
-        last_balance_snapshot = Main.objects.select_for_update().get(id=1)
-        if last_balance_snapshot.last_balance_snapshot_planned_date < timestamp.date():
-            do_snapshot = True
-            last_balance_snapshot.last_balance_snapshot_planned_date = timestamp
-            last_balance_snapshot.save()
-    if do_snapshot:
-        try:
-    '''
-    
     timestamp = timezone.make_aware(datetime.fromtimestamp(int(timestamp)), timezone=timezone.utc).date()
     timestamp_target = timestamp - timezone.timedelta(days=1)
-    #timestamp_previous = timestamp_target - timezone.timedelta(days=1)
 
     lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp)\
         .order_by('slot_number').first().slot_number
@@ -208,7 +164,7 @@ def make_balance_snapshot(slot, timestamp):
         .order_by('slot_number').first().slot_number
     
     if ValidatorBalance.objects.filter(date=timestamp_target).exists():
-        print("snapshot exists on date " + str(timestamp_target) + " slot " + str(lowest_slot_at_date))
+        logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(lowest_slot_at_date))
 
         if ValidatorBalance.objects.filter(slot=lowest_slot_at_date).exists():
             logger.info("snapshot slot matches existing one, exiting: %s.", lowest_slot_at_date)
@@ -216,40 +172,26 @@ def make_balance_snapshot(slot, timestamp):
         else:
             logger.error("snapshot slot does not match existing one. new: %s.", lowest_slot_at_date)
 
-        #previous = ValidatorBalance.objects.filter(date=timestamp_target).first().slot
-        #if previous == lowest_slot_at_date:
-        #    logger.info("snapshot slot matches existing one, exiting: %s.", slot)
-        #    return
-        #else:
-        #    logger.error("snapshot slot does not match existing one: %s new: %s.", previous, lowest_slot_at_date)
-
     validators = beacon.get_validators(state_id=str(lowest_slot_at_date))
 
-    print("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(lowest_slot_at_date))
+    logger.info("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(lowest_slot_at_date))
 
     # Query to aggregate the total amount withdrawn for each validator
     withdrawal_totals = Withdrawal.objects.filter(block__slot_number__lt=lowest_slot_at_date).values('validator').annotate(total_withdrawn=Sum('amount'))
     total_amount_withdrawn = {withdrawal['validator']: withdrawal['total_withdrawn'] for withdrawal in withdrawal_totals}
 
-    print(131)
     validator_missed_attestations = MissedAttestation.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_attestations_dict = {v['validator_id']: v['count'] for v in validator_missed_attestations}
-    print(132)
+
     validator_missed_sync = MissedSync.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_sync_dict = {v['validator_id']: v['count'] for v in validator_missed_sync}
 
-    #previous_balances = ValidatorBalance.objects.filter(date=timestamp_previous).values("validator_id", "execution_reward", "total_consensus_balance")
-
-    print(134)
-    # Query to aggregate the total execution reward for each validator
-    #execution_totals = Block.objects.filter(slot_number__lt=lowest_slot_at_date).values(
-    #    'proposer').annotate(execution_total=Sum('total_reward'))
     execution_totals = Block.objects.filter(slot_number__lte=lowest_slot_at_date, empty=0).values(
         'proposer').annotate(execution_total=Sum('total_reward'))
 
     total_execution_rewards = {block['proposer']: block['execution_total'] for block in
                             execution_totals}
-    print(123)
+
     create_validator_balances_iter = iter(
         ValidatorBalance(validator_id=int(validator["index"]),
                         date=timestamp_target,
@@ -266,7 +208,6 @@ def make_balance_snapshot(slot, timestamp):
                         missed_sync=validator_missed_sync_dict[int(validator["index"])] if int(validator["index"]) in validator_missed_sync_dict else 0,
                         )
         for count, validator in enumerate(validators["data"]))
-    print(124)
 
     batch_size = 512
 
@@ -277,7 +218,6 @@ def make_balance_snapshot(slot, timestamp):
 
     pool = ThreadPoolExecutor(max_workers=4)
     futures = []
-    print(125)
     while True:
         batch = list(islice(create_validator_balances_iter, batch_size))
         if len(batch) == 0:
@@ -285,22 +225,8 @@ def make_balance_snapshot(slot, timestamp):
 
         future = pool.submit(insert_batch, batch)
         futures.append(future)
-    print(126)
     wait(futures)
     pool.shutdown()
-
-
-@shared_task(bind=True, soft_time_limit=960, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
-def make_balance_snapshot_task(self, slot, timestamp):
-    try:
-        make_balance_snapshot(slot, timestamp)
-    except Exception as e:
-        print("error snapshot, retrying in 5 seconds")
-        print(e)
-        print(traceback.format_exc())
-
-        # restart task in 5 seconds
-        self.retry(countdown=5)
 
 
 @transaction.atomic
@@ -381,7 +307,7 @@ def load_block(slot, epoch):
     logger.info("Process block at slot %s: %s", slot, str(block)[:200])
 
     if "code" in block and block["code"] == 500:
-        print("api error loading block at slot " + str(slot) + ": retrying in 5 seconds")
+        logger.warning("api error loading block at slot " + str(slot) + ": retrying in 5 seconds")
         time.sleep(5)
         load_block(slot, epoch)
         return
@@ -390,29 +316,21 @@ def load_block(slot, epoch):
 
     if block_not_found:
         state_root = None
-        print("block at slot " + str(slot) + " not found")
     else:
         state_root = block["data"]["message"]["state_root"]
 
-    # new_block, created = Block.objects.get_or_create(slot_number=int(slot), defaults={'epoch': int(epoch)})
     try:
         new_block = Block.objects.get(slot_number=int(slot))
     except:
         new_block = Block.objects.create(slot_number=int(slot), epoch=int(epoch))
 
-    #if block_not_found:
-    #latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
-    #block_timestamp = GENESIS_TIME + timedelta(
-    #    seconds=SECONDS_PER_SLOT * slot
-    #)
-    #new_block.timestamp = block_timestamp
     if block_not_found and new_block.state_root != state_root:
-        print("potential reorg at slot " + str(slot))
+        logger.warning("potential reorg at slot " + str(slot))
         new_block.empty = 2
         new_block.save()
         return
     elif block_not_found:
-        print("block empty at slot " + str(slot))
+        logger.info("block at slot " + str(slot) + " not found (likely not proposed)")
         new_block.empty = 1
         new_block.save()
         return
@@ -509,8 +427,6 @@ def load_block(slot, epoch):
                 new_block.burnt_fee = 0
             new_block.transaction_count = len(execution_block["transactions"])
         
-
-
         attestations = block["data"]["message"]["body"]["attestations"]
 
         if len(attestations) > 0:
@@ -531,12 +447,12 @@ def load_block(slot, epoch):
                     break
                 except:
                     if except_count < 4:
-                        print("lock detected, waiting...")
+                        logger.warning("lock detected, waiting...")
                         time.sleep(1)
                         except_count += 1
                         continue
                     else:
-                        print("deadlock detected, raising error...")
+                        logger.warning("deadlock detected")
                         raise
 
             attestation_committee_dict = {}
@@ -544,31 +460,9 @@ def load_block(slot, epoch):
                 attestation_committee_dict[(ac.slot, ac.index)] = ac
 
             attestation_committee_update = []
-            #attestation_committee_dict = {}
             for attestation in attestations:
                 if (int(attestation["data"]["slot"]), int(attestation["data"]["index"])) not in attestation_committee_dict:
-                    print("AttestationCommittee missing...")
-                    raise
-                    #while True:
-                    #    except_count = 0
-                    #    try:
-                    #        attestation_committee = AttestationCommittee.objects.select_for_update().get(
-                    #            slot=attestation["data"]["slot"],
-                    #            index=attestation["data"]["index"])
-                    #        attestation_committee_dict[(attestation["data"]["slot"], attestation["data"]["index"])] = attestation_committee
-                    #        break
-                    #    except (DatabaseError, OperationalError) as e:
-                    #        if except_count < 0:
-                    #            print("lock detected, waiting...")
-                    #            print(e)
-                    #            time.sleep(1)
-                    #            except_count += 1
-                    #            continue
-                    #        else:
-                    #            print("deadlock detected, raising error...")
-                    #            print(attestation["data"]["slot"])
-                    #            print(attestation["data"]["index"])
-                    #            raise
+                    raise Exception("AttestationCommittee missing")
                 else:
                     attestation_committee = attestation_committee_dict[(int(attestation["data"]["slot"]), int(attestation["data"]["index"]))]
 
@@ -576,9 +470,6 @@ def load_block(slot, epoch):
                 hex_str = attestation["aggregation_bits"]
                 binary_string = bin(int(int.from_bytes(bytes.fromhex(hex_str[2:]), byteorder="little")))[2:].zfill(
                     len(hex_str[2:]) * 4)[::-1]
-
-                #if int(attestation["data"]["index"]) == 10:
-                #    print(binary_string)
 
                 distance = list(attestation_committee.distance)
                 if len(distance) == 0:
@@ -614,16 +505,15 @@ def send_request_post(what, data):
     return requests.post(url, headers=headers, data=data).json()
 
 
-#@transaction.atomic
+@transaction.atomic
 def load_epoch_rewards(epoch):
-    print("loading epoch " + str(epoch) + " consensus rewards")
+    logger.info("loading epoch " + str(epoch) + " consensus rewards")
 
     if EpochReward.objects.filter(epoch=int(epoch)).exists():
         return
 
     with transaction.atomic():
         attestation_rewards = send_request_post('/eth/v1/beacon/rewards/attestations/' + str(epoch), '[]')
-        print(127)
             
         sync_rewards = {}
         for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
@@ -647,8 +537,6 @@ def load_epoch_rewards(epoch):
                         else:
                             sync_rewards[validator_index] = {"reward": 0, "penalty": reward}
 
-        print(128)
-
         epoch_rewards = {}
         for reward in attestation_rewards["data"]["total_rewards"]:
             epoch_rewards[int(reward["validator_index"])] = EpochReward(
@@ -661,7 +549,6 @@ def load_epoch_rewards(epoch):
                 sync_penalty=sync_rewards_json[reward["validator_index"]]["penalty"] if reward["validator_index"] in sync_rewards_json else None,
             )
         
-        print(129)
         for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
             url = BEACON_API_ENDPOINT + "/eth/v1/beacon/rewards/blocks/" + str(slot)
             block_reward = requests.get(url).json()
@@ -672,8 +559,7 @@ def load_epoch_rewards(epoch):
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_sync_aggregate = int(block_reward["data"]["sync_aggregate"])
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_proposer_slashings = int(block_reward["data"]["proposer_slashings"])
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_attester_slashings = int(block_reward["data"]["attester_slashings"])
-        
-        print(130)
+
         EpochReward.objects.bulk_create(epoch_rewards.values(), batch_size=512, ignore_conflicts=True)
 
 
@@ -688,11 +574,8 @@ def get_block_reward(execution_block, block):
         "id": count
     } for count, t in enumerate(execution_block["transactions"])]
 
-    # print(str(execution_block["transactions"]))
     receipts = requests.post(EXECUTION_HTTP_API_ENDPOINT, json=data, headers=headers).json()
-    #print(str(receipts))
     for r in receipts:
-        #print(str(r))
         tx_fee = int(execution_block["transactions"][int(r["id"])]["gasPrice"]) * int(r["result"]["gasUsed"], 16)
         total_tx_fee += tx_fee
 
@@ -704,14 +587,11 @@ def get_block_reward(execution_block, block):
 
 
 def get_attestation_performance(current_epoch):
-    logger.warning("calculate attestation efficiency...")
-    #past_epochs = range(current_epoch - 10, current_epoch)
-    #attestation_committees = list(AttestationCommittee.objects.filter(epoch__in=past_epochs).values('validator_ids', 'distance'))
+    logger.info("calculate attestation efficiency...")
     attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(current_epoch - 10)*SLOTS_PER_EPOCH,
                                                                       slot__lt=(current_epoch + 1)*SLOTS_PER_EPOCH).values('validator_ids', 'distance'))
 
     performance_counts = {}
-
     for committee in attestation_committees:
         for i, validator_id in enumerate(committee['validator_ids']):
             if validator_id not in performance_counts:
@@ -731,22 +611,22 @@ def get_attestation_performance(current_epoch):
         total_efficiency += attestation_efficiency
 
     average_attestation_efficiency = total_efficiency / len(performance_counts) if len(performance_counts) > 0 else 0
-    logger.warning("average attestation efficiency is " + str(average_attestation_efficiency))
+    logger.info("average attestation efficiency is " + str(average_attestation_efficiency))
     cache.set('average_attestation_efficiency', average_attestation_efficiency, timeout=5000)
 
     return performance_counts
 
 
 def load_validators(slot):
-    logger.warning("request validators from beacon api...")
+    logger.info("request validators from beacon api...")
 
     validators = beacon.get_validators(state_id=str(slot))
     validator_count = len(validators["data"])
 
-    logger.warning("creating validators...")
+    logger.info("creating validators...")
 
     existing_validator_ids = set(Validator.objects.values_list('validator_id', flat=True))
-    logger.warning("existing validators in db: " + str(len(existing_validator_ids)))
+    logger.info("existing validators in db: " + str(len(existing_validator_ids)))
 
     existing_validator_ids = set(map(int, existing_validator_ids))
 
@@ -761,7 +641,6 @@ def load_validators(slot):
         for validator in validators["data"]
         if int(validator["index"]) not in existing_validator_ids)
 
-
     batch_size = 1000
     count = 0
     progress_lock = Lock()
@@ -772,7 +651,7 @@ def load_validators(slot):
             nonlocal count
             count += len(batch)
             if count % 10000 == 0:
-                logger.warning("created " + str(count) + " of " + str(validator_count))
+                logger.info("created " + str(count) + " of " + str(validator_count))
 
     pool = ThreadPoolExecutor(max_workers=4)
     futures = []
@@ -788,16 +667,14 @@ def load_validators(slot):
     wait(futures)
     pool.shutdown()
 
-    print("update validator withdrawal address")
+    logger.info("update validator withdrawal address")
 
     withdrawal_credentials = Validator.objects.filter(withdrawal_type=0).values('validator_id', 'withdrawal_credentials')
-    print(len(withdrawal_credentials))
     withdrawal_credentials_dict = {w['validator_id']: str(w['withdrawal_credentials']) for w in withdrawal_credentials}
 
     validator_to_update = []
     for count, val in enumerate(validators["data"]):
         if int(val["index"]) in withdrawal_credentials_dict and withdrawal_credentials_dict[int(val["index"])] != str(val["validator"]["withdrawal_credentials"]):
-            #print("does not match " + withdrawal_credentials_dict[int(val["index"])] + " - " + str(val["validator"]["withdrawal_credentials"]))
             validator_to_update.append(Validator(
                 validator_id=int(val["index"]),
                 withdrawal_credentials=str(val["validator"]["withdrawal_credentials"]),
@@ -805,7 +682,7 @@ def load_validators(slot):
             ))
     Validator.objects.bulk_update(validator_to_update, batch_size=512, fields=["withdrawal_credentials", "withdrawal_type"])
 
-    print("update validator key epochs")
+    logger.info("update validator key epochs")
 
     key_epochs_to_update = ["activation_epoch", "activation_eligibility_epoch"]
     for k in key_epochs_to_update:
@@ -813,13 +690,11 @@ def load_validators(slot):
             k: 18446744073709551615,
         }
         epoch_undefined = Validator.objects.filter(**kwargs).values('validator_id', k)
-        print(k + " - " + str(len(epoch_undefined)))
         epoch_undefined_dict = {w['validator_id']: int(w[k]) for w in epoch_undefined}
 
         validator_to_update = []
         for count, val in enumerate(validators["data"]):
             if int(val["index"]) in epoch_undefined_dict and epoch_undefined_dict[int(val["index"])] != int(val["validator"][k]):
-                print("does not match " + str(epoch_undefined_dict[int(val["index"])]) + " - " + str(val["validator"][k]))
                 kwargs = {
                     "validator_id": int(val["index"]),
                     k: int(val["validator"][k])
@@ -827,17 +702,17 @@ def load_validators(slot):
                 validator_to_update.append(Validator(**kwargs))
         Validator.objects.bulk_update(validator_to_update, batch_size=512, fields=[k])
 
-    print("update validator information cache")
+    logger.info("update validator information cache")
 
     performance_counts = get_attestation_performance(int(slot / SLOTS_PER_EPOCH) - 2)
 
-    print("aggregate the total amount withdrawn for each validator")
+    logger.info("aggregate the total amount withdrawn for each validator")
     withdrawal_totals = Withdrawal.objects.values('validator').annotate(total_withdrawn=Sum('amount'))
 
     total_amount_withdrawn = {withdrawal['validator']: withdrawal['total_withdrawn'] for withdrawal in
                               withdrawal_totals}
 
-    print("aggregate the total execution reward for each validator")
+    logger.info("aggregate the total execution reward for each validator")
     execution_totals = Block.objects.filter(empty=0).values('proposer').annotate(execution_total=Sum('total_reward'))
 
     total_execution_rewards = {block['proposer']: block['execution_total'] for block in
@@ -849,7 +724,7 @@ def load_validators(slot):
         .values('tag').order_by('tag').annotate(count=Count('id')).values_list('tag', 'count')
     sync_committee_participation_mapping = {int(tag): int(count) for tag, count in sync_committee_participation_count}
 
-    print("calculate missed attestation at date")
+    logger.info("calculate missed attestation at date")
     timestamp = timezone.make_aware(datetime.now(), timezone=timezone.utc).date()
     timestamp_target = timestamp - timezone.timedelta(days=1)
 
@@ -866,13 +741,10 @@ def load_validators(slot):
     
     validator_missed_attestations = MissedAttestation.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_attestations_dict = {v['validator_id']: v['count'] for v in validator_missed_attestations}
-    del validator_missed_attestations
 
-    print("calculate missed sync at date")
+    logger.info("calculate missed sync at date")
     validator_missed_sync = MissedSync.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_sync_dict = {v['validator_id']: v['count'] for v in validator_missed_sync}
-    del validator_missed_sync
-    gc.collect()
 
     ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
 
@@ -881,7 +753,7 @@ def load_validators(slot):
     cache_data = {}
     for count, val in enumerate(validators["data"]):
         if count % 50000 == 0:
-            logger.warning(f"loaded {count} of {len(validators['data'])} validators")
+            logger.info(f"loaded {count} of {len(validators['data'])} validators")
         
         validator = {
                      "validator_id": int(val["index"]),
@@ -903,7 +775,7 @@ def load_validators(slot):
         cache_data['validator_' + str(int(val["index"]))] = str(validator)
 
         if len(cache_data) > 200000:
-            logger.warning("bulk add validators to cache...")
+            logger.info("bulk add validators to cache...")
             cache.set_many(cache_data, timeout=5000)
             cache_data = {}
 
@@ -912,8 +784,7 @@ def load_validators(slot):
         elif str(val["status"]) in ACTIVE_STATUSES:
             active_validators += 1    
         
-
-    logger.warning("bulk add validators to cache...")
+    logger.info("bulk add validators to cache...")
     cache.set_many(cache_data, timeout=5000)
     cache.set("validator_update_slot", slot, timeout=5000)
     cache.set("active_validators", active_validators, timeout=5000)
@@ -946,7 +817,7 @@ def get_deposits(fromBlock, toBlock):
 @timeout_decorator.timeout(50)
 @transaction.atomic
 def load_epoch(epoch, slot):
-    logger.warning("load proposals at epoch " + str(epoch) + " slot " + str(slot))
+    logger.info("load proposals at epoch " + str(epoch) + " slot " + str(slot))
 
     epoch_proposer = beacon.get_proposer_duties(epoch)
 
@@ -974,11 +845,11 @@ def load_epoch(epoch, slot):
         ]
         Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer"], unique_fields=["slot_number"])
 
-        logger.warning("load attestation committee at epoch " + str(epoch) + " slot " + str(slot))
+        logger.info("load attestation committee at epoch " + str(epoch) + " slot " + str(slot))
         url = BEACON_API_ENDPOINT + '/eth/v1/beacon/states/' + str(slot) + '/committees?epoch=' + str(epoch)
         epoch_attestations = requests.get(url).json()
 
-        logger.warning(f"Bulk create AttestationCommittee for epoch {epoch}")
+        logger.info(f"Bulk create AttestationCommittee for epoch {epoch}")
 
         attestation_committees = [
             AttestationCommittee(
@@ -992,15 +863,3 @@ def load_epoch(epoch, slot):
         ]
 
         AttestationCommittee.objects.bulk_create(attestation_committees, batch_size=10000, ignore_conflicts=True)
-
-        #for committee in epoch_attestations["data"]:
-        #    attestation_committee = AttestationCommittee.objects.create(slot=int(committee["slot"]),
-        #                                                                                index=int(committee["index"]),
-        #                                                                                epoch=epoch,
-        #                                                                                validator_ids=committee["validators"])
-
-            #committee_validators = Validator.objects.filter(validator_id__in=list(committee["validators"]))
-            #attestation_committee.validators.clear()
-            #for val in committee["validators"]:
-            #    attestation_committee.validators.add(val)
-            #attestation_committee.save()

@@ -1,22 +1,18 @@
 from django.http import JsonResponse
 from django.shortcuts import render
 from blockfetcher.models import EpochReward, Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, MissedAttestation, SyncCommittee, MissedSync
-import time
 from django.core.cache import cache
 from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, BEACON_API_ENDPOINT, GENESIS_TIMESTAMP, VALIDATOR_MONITORING_LIMIT
 import json
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.db.models import Sum, Q, Count
-from django.db.models import Func, F, Count
-import requests
-from django.utils.timesince import timesince, timeuntil
+from django.db.models import Sum
 from blockfetcher.cache import *
-from functools import wraps
 from django.db import connection
 from collections import defaultdict
 from django.db import models
 from api.util import calculate_activation_epoch
+from api.util import measure_execution_time
 
 
 def get_blocks(request):
@@ -115,17 +111,6 @@ def get_epochs(request):
 
 def calc_time_of_slot(slot):
     return timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * slot)), timezone=timezone.utc)
-
-
-def measure_execution_time(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        execution_time = time.time() - start_time
-        print(f"Execution time for {func.__name__}: {execution_time} seconds")
-        return result
-    return wrapper
 
 
 def extract_validator_ids(request):
@@ -242,7 +227,6 @@ def get_attestations(index_numbers, from_slot, to_slot):
         for id in set(attestation['validator_ids']).intersection(validator_ids_set)
     ]
     
-    print(len(attestation_distances))
     return attestation_distances
 
 

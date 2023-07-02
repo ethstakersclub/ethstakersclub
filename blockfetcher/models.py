@@ -24,9 +24,6 @@ class Validator(models.Model):
     # Validator total withdrawn
     total_withdrawn = models.DecimalField(max_digits=27, decimal_places=0, default=0)
 
-    # Validator effective balance
-    # effective_balance = models.DecimalField(max_digits=27, decimal_places=0, default=0)
-
     # Validator status
     STATUS_CHOICES = [
         ('pending_initialized', 'Pending Initialized'),
@@ -45,15 +42,6 @@ class Validator(models.Model):
         ('unknown', 'Unknown'),
     ]
     status = models.CharField(max_length=19, choices=STATUS_CHOICES, default="unknown")
-
-    # Validator performance metrics
-    # performance = models.IntegerField(default=0)
-
-    # Validator creation date
-    # created_at = models.DateTimeField(auto_now_add=True)
-
-    # Last update date
-    # updated_at = models.DateTimeField(auto_now=True)
 
     # Slashed
     active = models.BooleanField(default=True)
@@ -76,7 +64,6 @@ class Validator(models.Model):
 
 class Block(models.Model):
     # Proposer
-    #proposer = models.ForeignKey(Validator, on_delete=models.CASCADE, null=True)
     proposer = models.PositiveIntegerField(blank=True, null=True, db_index=True)
 
     # Block number
@@ -106,17 +93,8 @@ class Block(models.Model):
     # Parent block hash
     parent_hash = models.CharField(max_length=84)
 
-    # Validator count
-    validator_count = models.PositiveIntegerField(default=0) # ----------
-
     # Beacon chain epoch
     epoch = models.PositiveIntegerField()
-
-    # Validator participation rate
-    participation_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0) # ----------
-
-    # Number of attestations
-    attestation_count = models.PositiveIntegerField(default=0) # ----------
 
     # Number of deposits
     deposit_count = models.PositiveIntegerField(default=0)
@@ -154,9 +132,6 @@ class Block(models.Model):
     # Sync committee aggregation
     sync_committee_bits = models.CharField(max_length=130)
 
-    # Validators that missed the sync committee
-    sync_missed = ArrayField(models.IntegerField(), null=True, blank=True) # ----------
-
     # Sync committee signature
     sync_committee_signature = models.CharField(max_length=194)
 
@@ -178,8 +153,6 @@ class Block(models.Model):
 
 class Main(models.Model):
     last_slot = models.IntegerField(default=0)
-    #last_checked_epoch = models.IntegerField(default=0)
-    #last_balance_snapshot_date = models.DateField()
     last_balance_snapshot_planned_date = models.DateField()
     last_staking_deposits_update_block = models.IntegerField(default=0)
     last_epoch_slot_processed = models.IntegerField(default=0)
@@ -282,20 +255,20 @@ class ValidatorBalance(models.Model):
 
 
 class EpochReward(models.Model):
-    validator_id = models.PositiveIntegerField(db_index=True)
-    epoch = models.PositiveIntegerField(db_index=True)
+    validator_id = models.IntegerField(db_index=True)
+    epoch = models.IntegerField(db_index=True)
 
-    attestation_head = models.DecimalField(max_digits=27, decimal_places=0, default=0)
-    attestation_target = models.DecimalField(max_digits=27, decimal_places=0, default=0)
-    attestation_source = models.DecimalField(max_digits=27, decimal_places=0, default=0)
+    attestation_head = models.IntegerField(default=0)
+    attestation_target = models.IntegerField(default=0)
+    attestation_source = models.IntegerField(default=0)
 
-    sync_reward = models.DecimalField(max_digits=27, decimal_places=0, null=True)
-    sync_penalty = models.DecimalField(max_digits=27, decimal_places=0, null=True)
+    sync_reward = models.IntegerField(null=True)
+    sync_penalty = models.IntegerField(null=True)
 
-    block_attestations = models.DecimalField(max_digits=27, decimal_places=0, null=True)
-    block_sync_aggregate = models.DecimalField(max_digits=27, decimal_places=0, null=True)
-    block_proposer_slashings = models.DecimalField(max_digits=27, decimal_places=0, null=True)
-    block_attester_slashings = models.DecimalField(max_digits=27, decimal_places=0, null=True)
+    block_attestations = models.IntegerField(null=True)
+    block_sync_aggregate = models.IntegerField(null=True)
+    block_proposer_slashings = models.IntegerField(null=True)
+    block_attester_slashings = models.IntegerField(null=True)
 
     class Meta:
         unique_together = [["epoch", "validator_id"]]

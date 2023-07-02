@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, MissedAttestation, SyncCommittee, MissedSync
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, BEACON_API_ENDPOINT, VALIDATOR_MONITORING_LIMIT
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, VALIDATOR_MONITORING_LIMIT
 import json
 from django.utils import timezone
 import datetime
@@ -13,9 +13,9 @@ from blockfetcher.cache import *
 from django.shortcuts import get_object_or_404
 from api.views import get_chart_data_daily_rewards
 from django.db.models.functions import TruncHour
-from django.db import models
 import statistics
 from api.util import calculate_activation_epoch
+from api.util import measure_execution_time
 
 
 def calc_time_of_slot(ref_block_timestamp, ref_block_slot, to_slot):
@@ -38,83 +38,6 @@ def get_time_diff_to_now(time):
 def get_time_diff_to_now_short(time):
     return get_time_diff_to_now(time).replace("seconds", "s").replace("hours", "h").replace("minutes", "min").replace("days", "d")\
         .replace("second", "s").replace("hour", "h").replace("minute", "min").replace("day", "d")
-
-
-def get_attestations(index_numbers, latest_block, start_time):
-    #print(first_epoch_online)
-    #first_slot_to_check = (first_epoch_online - 1) * SLOTS_PER_EPOCH
-    print("get_attestations")
-
-    epochs_to_check = 5
-    if len(index_numbers) > 5:
-        epochs_to_check = 2
-    if len(index_numbers) > 10:
-        epochs_to_check = 1
-    if len(index_numbers) > 50:
-        epochs_to_check = 0.4
-
-    attestations = AttestationCommittee.objects \
-                    .filter(slot__gt=latest_block.slot_number - (SLOTS_PER_EPOCH * epochs_to_check), validator_ids__overlap=index_numbers) \
-                    .order_by('-slot') \
-        .values('validator_ids', 'distance', 'epoch', 'slot')
-    print_time(start_time, "pos4.2.0")
-
-    validator_ids_set = set(index_numbers)
-    attestation_distances = [
-        {
-            "epoch": attestation['epoch'],
-            "distance": attestation['distance'][index],
-            "slot": attestation['slot'],
-            "block_timestamp": calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, attestation['slot']).isoformat(),
-            "validator_id": id
-        }
-        for attestation in attestations
-        for index, id in enumerate(attestation['validator_ids'])
-        if id in validator_ids_set
-    ]
-
-    '''
-    attestation_distances = [
-        {
-            "epoch": attestation['epoch'],
-            "distance": attestation['distance'][attestation['validator_ids'].index(id)],
-            "slot": attestation['slot'],
-            "block_timestamp": calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, attestation['slot']).isoformat(),
-            "validator_id": id
-        }
-        for attestation in attestations
-        for id in index_numbers
-        if id in attestation['validator_ids']
-    ]
-    '''
-    '''
-    attestation_distances = [
-        {
-            "epoch": attestation['epoch'],
-            "distance": attestation['distance'][attestation['validator_ids'].index(id)],
-            "slot": attestation['slot'],
-            "block_timestamp": calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, attestation['slot']).isoformat(),
-            "validator_id": id
-        }
-        for attestation in attestations
-        for id in set(attestation['validator_ids']) & set(index_numbers)
-    ]
-    '''
-    '''
-    attestation_distances = [
-        {
-            "epoch": attestation['epoch'],
-            "distance": attestation['distance'][attestation['validator_ids'].index(id)],
-            "slot": attestation['slot'],
-            "block_timestamp": calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, attestation['slot']).isoformat(),
-            "validator_id": id
-        }
-        for attestation in attestations
-        for id in set(attestation['validator_ids']).intersection(index_numbers)
-    ]
-    '''
-    print_time(start_time, "pos4.2.1")
-    return attestation_distances
 
 
 def get_withdrawals(index_array):
@@ -170,7 +93,7 @@ def print_time(start_time, pos):
     print(time.time() - start_time)
 
 
-def get_sync_attestation_dashboard_info(cached_validators, index_array, start_time, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict):
+def get_sync_attestation_dashboard_info(cached_validators, index_array, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict):
     total_attestations = 0
     sync_participation_count = 0
     try:
@@ -181,16 +104,12 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, start_ti
         pass
     if total_attestations < 0:
         total_attestations = 0
-    
-    print_time(start_time, "pos9")
 
     sync_duty_count = sync_participation_count * (SLOTS_PER_EPOCH * 256)
     current_sync_period = int(int(validator_update_slot / SLOTS_PER_EPOCH) / 256)
     new_sync_committees = SyncCommittee.objects.filter(period__gte=current_sync_period).values('validator_ids', 'period')[:2]
     active_sync_validators = {'validators': [], 'start': "-", 'end': "-", 'start-slot': 0, 'end-slot': 0}
     next_sync_validators = {'validators': [], 'start': "-", 'end': "-", 'start-slot': 0, 'end-slot': 0}
-
-    print_time(start_time, "pos10")
 
     for nsc in new_sync_committees:
         sync_period_start_slot = (nsc["period"]) * 256 * SLOTS_PER_EPOCH
@@ -241,8 +160,6 @@ def view_validator(request, index, dashboard=False):
     current_slot = get_current_slot_from_cache()
     latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
 
-    print_time(start_time, "pos2")
-
     validators = Validator.objects.filter(validator_id__in=index_array)
     validator_dict = {v.validator_id: v for v in validators}
 
@@ -250,7 +167,7 @@ def view_validator(request, index, dashboard=False):
         if len(validators) > 1:
             dashboard = True
         else:
-            #try:
+            try:
                 active_validators_count = get_active_validators_count_from_cache()
                 validators_per_epoch = int(active_validators_count / CHURN_LIMIT_QUOTIENT)
                 validator_update_epoch = int(get_validator_update_slot_from_cache() / SLOTS_PER_EPOCH)
@@ -281,13 +198,10 @@ def view_validator(request, index, dashboard=False):
                             "validators_per_epoch": validators_per_epoch,
                             "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
                             }
-            #except:
-            #    validator_info = {}
+            except:
+                validator_info = {}
     else:
         validator_info = {}
- 
-    #print_time(start_time, "pos3")
-    #validator = Validator.objects.get(validator_id=index_array[0])
     
     print_time(start_time, "pos4")
     blocks, average_execution_reward, highest_execution_reward, blocks_per_validator, proposed_blocks_count = get_blocks(index_array)
@@ -295,8 +209,6 @@ def view_validator(request, index, dashboard=False):
     block_proposal_efficiency = int(proposed_blocks_count / block_count * 100) if block_count > 0 else 100
     print_time(start_time, "pos4.1")
     withdrawals, withdrawals_count = get_withdrawals(index_array)
-    #print_time(start_time, "pos4.2")
-    #attestation_distances = get_attestations(index_array, latest_block, start_time)
     print_time(start_time, "pos4.4")
     chart_data, apy, total_rewards = get_chart_data_daily_rewards(index_array, timezone.now().date(), 45, cached_validators, validator_update_slot)
     print_time(start_time, "pos5")
@@ -314,23 +226,11 @@ def view_validator(request, index, dashboard=False):
         elif cv["status"] == "exited_unslashed" or cv["status"] == "exited_slashed":
             dashboard_head_data["exited_validators"] += 1
     efficiency = (efficiency_sum / count_efficiency) if count_efficiency > 0 else 0
-
-    #print_time(start_time, "pos6")
-
-    #missed_attestation_count = 0 # MissedAttestation.objects.filter(validator_id__in=index_array).count()
-    #validator_occurrences = MissedAttestation.objects.values('validator_id').annotate(count=Count('validator_id'))
-    
-    #print(validator_occurrences[50]["count"])
-    #for occurrence in validator_occurrences:
-    #    validator_id = occurrence['validator_id']
-    #    count = occurrence['count']
-    #    if occurrence['validator_id'] == 12000:
-    #        print(f"Validator ID: {validator_id}, Occurrences: {count}")
     
     print_time(start_time, "pos8.1")
 
     sync_duty_count, sync_participation_count, active_sync_validators, next_sync_validators, total_attestations = \
-        get_sync_attestation_dashboard_info(cached_validators, index_array, start_time, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict)
+        get_sync_attestation_dashboard_info(cached_validators, index_array, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict)
 
     pending_validators = False
     validator_overview = []
@@ -349,8 +249,6 @@ def view_validator(request, index, dashboard=False):
     context = {
         'dashboard': dashboard,
         'validator_count': len(index_array),
-        #'validator': validator,
-        #'attestation_distances': json.dumps(attestation_distances),
         'efficiency': round_to_one_decimal_place(efficiency),
         'efficiency_lag': 100 - efficiency,
         'chart_data': json.dumps(chart_data),
@@ -367,7 +265,6 @@ def view_validator(request, index, dashboard=False):
         'total_attestations': total_attestations,
         'apy': apy,
         'total_rewards': total_rewards,
-        #'missed_attestation_count': missed_attestation_count,
         'missed_sync_committee_duties': missed_sync_committee_duties,
         'sync_participation_count': sync_participation_count,
         'sync_duty_count': sync_duty_count,
@@ -388,13 +285,8 @@ def view_validator(request, index, dashboard=False):
     return view
 
 
+@measure_execution_time
 def show_slots(request):
-    start_time = time.time()
-
-    #blocks = list(Block.objects.order_by("-slot_number")[:50].values('proposer', 'block_number',
-    #                                                           'slot_number', 'fee_recipient',
-    #                                                           'timestamp', 'total_reward', 'epoch', 'empty'))
-    
     avg_rewards_slots = list(Epoch.objects.exclude(average_block_reward=None).annotate(hour=TruncHour('timestamp')).values('hour')\
                                      .annotate(average_reward=Avg('average_block_reward')).order_by('-hour')[:1080])[::-1]
 
@@ -419,41 +311,29 @@ def show_slots(request):
         average_by_hour[a]["average"] = average_by_hour[a]["total"] / average_by_hour[a]["count"]
         average_by_hour[a]["median"] = statistics.median(average_by_hour[a]["rewards"])
 
-    #for entry in blocks:
-    #    entry["timestamp"] = entry["timestamp"].isoformat()
-    #    entry["total_reward"] = float(entry["total_reward"] / 10**18)
-
     context = {
-        #'blocks': json.dumps(blocks),
         'avg_rewards_slots': json.dumps(avg_rewards_slots),
         'average_by_hour': sorted(average_by_hour.values(), key=lambda x: x["median"]),
     }
     view = render(request, 'frontend/slots.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def show_epochs(request):
-    start_time = time.time()
-    
     participation_percent_epoch = list(Epoch.objects.order_by('-epoch').exclude(participation_percent=None).values('participation_percent', 'epoch')[:200])[::-1]
 
     context = {
-        #'epochs': json.dumps([]),
         'participation_percent_epoch': json.dumps(participation_percent_epoch),
     }
     view = render(request, 'frontend/epochs.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def show_validators(request):
-    start_time = time.time()
-
     validator_count = Validator.objects.all().count()
         
     validators_chart_data = list(Epoch.objects.exclude(active_validators=None).values('timestamp', 'epoch')\
@@ -462,7 +342,7 @@ def show_validators(request):
                                                 .order_by('-epoch')[:1080])[::-1]
     
     for entry in validators_chart_data:
-        entry["timestamp"] = entry["timestamp"].isoformat()#.strftime("%Y-%m-%d %H:%M")
+        entry["timestamp"] = entry["timestamp"].isoformat()
 
     context = {
         'validator_count': validator_count,
@@ -470,21 +350,18 @@ def show_validators(request):
     }
     view = render(request, 'frontend/validators.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def landing_page(request):
-    start_time = time.time()
-
     validators_chart_data = list(Epoch.objects.exclude(active_validators=None).values('timestamp').annotate(hour=TruncHour('timestamp')).values('hour')\
                                      .annotate(average_active_validators=Avg('active_validators'), average_exited_validators=Avg('exited_validators'),
                                                average_pending_validators=Avg('pending_validators'), average_exiting_validators=Avg('exiting_validators'))\
                                                 .order_by('-hour')[:300])[::-1]
     
     for entry in validators_chart_data:
-        entry["hour"] = entry["hour"].isoformat()#.strftime("%Y-%m-%d %H:%M")
+        entry["hour"] = entry["hour"].isoformat()
 
     latest_epoch_stats = Epoch.objects.exclude(active_validators=None).order_by('-epoch').first()
     
@@ -526,14 +403,11 @@ def landing_page(request):
     }
     view = render(request, 'frontend/landing.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def search_results(request):
-    start_time = time.time()
-
     query = request.GET.get('query')
 
     results = []
@@ -548,16 +422,12 @@ def search_results(request):
         
         for v in validators:
             results.append({'type': 'Validator', 'text': "(" + str(v["validator_id"]) + ") " + v["public_key"], 'url': '/validator/' + str(v["validator_id"])})
-        
-
-    print(time.time() - start_time)
 
     return JsonResponse({'results': results})
 
 
+@measure_execution_time
 def search_validator_results(request):
-    start_time = time.time()
-
     query_list = request.GET.get('query').split(',')
 
     if len(query_list) > 250:
@@ -591,14 +461,11 @@ def search_validator_results(request):
                         'status': cached_validator['status'] if 'status' in cached_validator else "unknown",
                         'new': True})
 
-    print(time.time() - start_time)
-
     return JsonResponse({'results': results, 'array': len(query_list) > 1})
 
 
+@measure_execution_time
 def dashboard_empty(request):
-    start_time = time.time()
-
     if request.user.is_authenticated:
         try:
             validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
@@ -615,13 +482,11 @@ def dashboard_empty(request):
     }
     view = render(request, 'frontend/validator_dashboard.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def attestation_live_monitoring_empty(request):
-    start_time = time.time()
     if request.user.is_authenticated:
         validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
         if len(validator_array) > 0:
@@ -632,13 +497,11 @@ def attestation_live_monitoring_empty(request):
     }
     view = render(request, 'frontend/live_monitoring.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def sync_live_monitoring_empty(request):
-    start_time = time.time()
     if request.user.is_authenticated:
         validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
         if len(validator_array) > 0:
@@ -649,13 +512,11 @@ def sync_live_monitoring_empty(request):
     }
     view = render(request, 'frontend/sync_live_monitoring.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def attestation_live_monitoring(request, index):
-    start_time = time.time()
     validator_array = [int(pk) for pk in index.split(',')]
     current_epoch = get_current_epoch_from_cache()
 
@@ -682,14 +543,11 @@ def attestation_live_monitoring(request, index):
     }
     view = render(request, 'frontend/live_monitoring.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def sync_live_monitoring(request, index):
-    start_time = time.time()
-
     validator_array = [int(pk) for pk in index.split(',')]
 
     current_epoch = get_current_epoch_from_cache()
@@ -703,7 +561,7 @@ def sync_live_monitoring(request, index):
     validator_dict = {v.validator_id: v for v in validators}
 
     sync_duty_count, sync_participation_count, active_sync_validators, next_sync_validators, total_attestations = \
-        get_sync_attestation_dashboard_info(cached_validators, validator_array, start_time, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict)
+        get_sync_attestation_dashboard_info(cached_validators, validator_array, current_slot, current_epoch, latest_block, validator_update_slot, validator_dict)
 
     chart_data, apy, total_rewards = get_chart_data_daily_rewards(validator_array, timezone.now().date(), 30)
     
@@ -715,14 +573,11 @@ def sync_live_monitoring(request, index):
     }
     view = render(request, 'frontend/sync_live_monitoring.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def show_slot(request, slot_number):
-    start_time = time.time()
-
     slot = get_object_or_404(Block, slot_number=slot_number)
     slot.timestamp = slot.timestamp.isoformat()
     slot.total_reward = float(slot.total_reward) / 10**18
@@ -732,14 +587,11 @@ def show_slot(request, slot_number):
     }
     view = render(request, 'frontend/slot.html', context)
 
-    print(time.time() - start_time)
-
     return view
 
 
+@measure_execution_time
 def show_epoch(request, epoch):
-    start_time = time.time()
-
     epoch = get_object_or_404(Epoch, epoch=epoch)
     epoch.timestamp = epoch.timestamp.isoformat()
 
@@ -747,8 +599,6 @@ def show_epoch(request, epoch):
         'epoch': epoch,
     }
     view = render(request, 'frontend/epoch.html', context)
-
-    print(time.time() - start_time)
 
     return view
 
