@@ -7,7 +7,7 @@ import json
 import requests
 from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, EXECUTION_WS_API_ENDPOINT, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
-                                    w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE, SECONDS_PER_SLOT, GENESIS_TIMESTAMP
+                                    w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee
 from web3.beacon import Beacon
@@ -189,7 +189,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
         create_sync_committee(loop_epoch - 256)
 
-        SNAPSHOT_CREATION_EPOCH_DELAY = 50
+        SNAPSHOT_CREATION_EPOCH_DELAY = SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
         MEV_FETCH_DELAY_SLOTS = SLOTS_PER_EPOCH * 2
 
         initial_run = True
