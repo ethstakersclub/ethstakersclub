@@ -101,7 +101,7 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
 
                     while tasks_count > 50:
                         print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                        time.sleep(2)
+                        time.sleep(1)
                         tasks_count = get_scheduled_tasks_count()
                 break
             except KeyboardInterrupt:
@@ -137,7 +137,7 @@ def setup_staking_deposits(main_row, head_block):
                 tasks_count = get_scheduled_tasks_count()
                 while tasks_count > 50:
                         print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                        time.sleep(3)
+                        time.sleep(1)
                         tasks_count = get_scheduled_tasks_count()
 
                 break
@@ -286,7 +286,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                     print_status('info', f"Slots per second: {slots_per_second}, Slots processed: {slots_processed}")
                 while tasks_count > 50:
                     print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                    time.sleep(3)
+                    time.sleep(1)
                     tasks_count = get_scheduled_tasks_count()
                 break
 
