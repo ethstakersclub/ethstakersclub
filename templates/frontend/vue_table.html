@@ -14,7 +14,7 @@
       <tbody>
         <tr v-for="item in paginatedData" :key="generateKey(item)">
           <td v-for="column in columns" :key="column.key">
-            <span v-if="typeof column.link != 'function'" :class="renderClass(item, column)">
+            <span v-if="typeof column.link != 'function'" :class="renderClass(item, column)" @click="onClickFunction(item, column)">
               {{ renderColumnValue(item, column) }}
             </span>
             <a v-else :href="renderLink(item, column)" :class="renderClass(item, column)">
@@ -313,6 +313,12 @@
           return item[key];
         }
         return '-';
+      },
+      onClickFunction(item, column) {
+        if (typeof column.onClickFunction === 'function') {
+            return column.onClickFunction(this.getColumnValue(item, column.key), item);
+        }
+        return "";
       },
       renderColumnValue(item, column) {
         if (typeof column.renderFunction === 'function') {

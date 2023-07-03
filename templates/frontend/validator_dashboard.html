@@ -13,7 +13,7 @@
         <div style="display: flex;align-items: center;">
           <input type="text" class="form-control" id="validator-add-input" placeholder="Enter Validator ID or Public Key (comma-separated for bulk add)" style="flex-grow: 1;max-width: 100%;">
         </div>
-        <ul class="search-result-area" role="listbox" hidden=""></ul>
+        <ul id="results-validator-add-area" class="search-result-area" role="listbox" hidden=""></ul>
         <table-component :data="validatorAddJsonData" :columns="validatorAddTableColumns" :emptytext="'Search for a validator, then click on it to add it.'"
         :emptyimage="'{% static 'img/pug2.png' %}'" :key-prop="'validator_id'" :allow-sort="false" />
       </div>
@@ -48,7 +48,9 @@
         <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
           <div class="key-metrics">
             <div class="small">Validators Online
+              {% if user.is_authenticated %}
               <button type="button" class="btn btn-primary d-none d-xl-block" data-toggle="modal" data-target="#validatorModal" style="padding: 3px;position: absolute;top: 8px;right: 4px;background: #52628a;color: white;padding-left: 10px;padding-right: 10px;">Add more</button>
+              {% endif %}
             </div>{{ dashboard_head_data.active_validators }}
           </div>
           <div class="key-metrics">
@@ -73,11 +75,13 @@
         </div>
       </div>
     </div>
+    {% if user.is_authenticated %}
     <div style="height: 30px;
     width: 100%;
     padding-right: 8px;">
       <button type="button" class="btn btn-primary d-block d-xl-none" data-toggle="modal" data-target="#validatorModal" style="float: right;padding: 3px 10px;background: rgb(82, 98, 138);color: white;">Add more Validators</button>
     </div>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -238,8 +242,8 @@
         <p class='small'>
                          Sync Committee Participations: {{ sync_participation_count }}<br/>
                          Missed Sync Duties: {{ missed_sync_committee_duties }}/{{ sync_duty_count }}<br/><br/>
-                         Current: since {{ active_sync_validators.start_in }} for validator {{ active_sync_validators.validators }}<br/>
-                         Next: in {{ next_sync_validators.start_in }} for validator {{ next_sync_validators.validators }}
+                         Current: since {{ active_sync_validators.start_in }} - {% for i in active_sync_validators.validators %}{{ i }}{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating<br/>
+                         Next: in {{ next_sync_validators.start_in }} - {% for i in next_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating
                         </p>
       </div>
       <div class='piechart-percent main-color'>{{ sync_efficiency }}%</div>
@@ -477,7 +481,11 @@
         {% if validator_count > 0 %}
         attestationsJsonData: [],
         attestationsTableColumns: [
-          { key: 'epoch', label: 'Epoch' },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
           { key: 'slot', label: 'Slot',
             link: (value, item) => {
               return '/slot/' + item.slot;

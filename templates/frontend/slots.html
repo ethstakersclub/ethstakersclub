@@ -66,11 +66,11 @@
               else if(value == 2)
                 return "Orphaned";
               else if(value == 3)
-                return "Not Processed Yet";
+                return "Pending";
             },
             renderClass: (value, item) => {
               return {
-                'status-label rounded-pill px-2': true,
+                'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': value == 0,
                 'bg-danger': value == 1,
                 'bg-warning': value == 2,

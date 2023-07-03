@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from .views import show_epoch, landing_page, show_validators, show_epochs, sync_live_monitoring_empty, attestation_live_monitoring_empty, show_slot, view_validator, show_slots, search_results, search_validator_results, dashboard_empty, attestation_live_monitoring, sync_live_monitoring
+from .views import settings, show_epoch, landing_page, show_validators, show_epochs, sync_live_monitoring_empty, attestation_live_monitoring_empty, show_slot, view_validator, show_slots, search_results, search_validator_results, dashboard_empty, attestation_live_monitoring, sync_live_monitoring
 
 urlpatterns = [
     path('validator/<str:index>/', view_validator, name='view_validator'),
@@ -16,5 +16,6 @@ urlpatterns = [
     path('dashboard/<str:index>/sync_live_monitoring/', sync_live_monitoring, name='sync_live_monitoring'),
     path('slot/<int:slot_number>', show_slot, name='show_slot'),
     path('epoch/<int:epoch>', show_epoch, name='show_epoch'),
+    path('settings/', settings, name='settings'),
     path('', landing_page, name='landing_page'),
 ]

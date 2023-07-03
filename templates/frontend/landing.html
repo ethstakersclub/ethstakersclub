@@ -8,6 +8,21 @@
   {% include 'frontend/sidebar.html' %}
   <div class="row m-0">
     <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
+
+        <div style="
+        margin:  0 auto;
+        margin-top: 70px;
+        margin-bottom: 30px;
+        display: block;" class="landing-main-image">
+        <img src="/static/img/pug_main_page.png" style="width:80%;margin:0 auto;display: block;" >
+<a type="button" href="{% url 'account_signup' %}" style="background-color: #52628a;background-color: rgb(82, 98, 138);
+margin: 0 auto;
+display: block;
+margin-bottom: 60px;
+padding: 14px;
+font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor your validators</a>
+        </div>
+
       <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
         
         <div class="key-metrics landing-key-metrics col-6 col-md-3">
@@ -105,11 +120,11 @@
               else if(value == 2)
                 return "Orphaned";
               else if(value == 3)
-                return "Not Processed Yet";
+                return "Pending";
             },
             renderClass: (value, item) => {
               return {
-                'status-label rounded-pill px-2': true,
+                'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': value == 0,
                 'bg-danger': value == 1,
                 'bg-warning': value == 2,
@@ -151,7 +166,7 @@
             },
             renderClass: (value, item) => {
               return {
-                'status-label rounded-pill px-2': true,
+                'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': value <= {{ finalized_epoch }},
                 'bg-warning': value > {{ finalized_epoch }},
               };

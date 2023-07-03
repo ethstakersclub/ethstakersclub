@@ -1,4 +1,5 @@
 {% extends "frontend/base.html" %}
+{% load static %}
 
 {% block title %}Dashboard - Sync Live Minitoring - {% endblock %}
 
@@ -17,6 +18,7 @@
 {% block content %}
 <div class='dashboard-container' id="app">
   {% include 'frontend/sidebar.html' with current_page='sync_live_monitoring' %}
+  {% if user.is_authenticated %}
   <div class="m-0">
     <div class="linechart-element mt-6">
       <canvas id="linechart"></canvas>
@@ -37,6 +39,19 @@
   </div>
 
   <div class='element-header social'></div>
+  {% else %}
+  <div class="text-center mt-6">
+    <div>
+      <img src="{% static 'img/pug1.png' %}" style="max-width: 400px; margin: 0 auto;width:50%;">
+      <br>
+        <div>
+          <a type="button" href="{% url 'account_signup' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Sign up to monitor your validators here</a>
+          <br><br><span style="color: #ffffffa1;">or</span><br>
+          <a type="button" href="{% url 'account_login' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Login</a>
+        </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 {% endblock %}

@@ -39,7 +39,7 @@
     </style>
     {% block head %}{% endblock %}
 </head>
-<body>
+<body style="height: 100% !important;">
 {% include 'frontend/header.html' %}
 {% block content %}{% endblock %}
 
@@ -85,8 +85,11 @@
         }
         });
 
-        inputField.on('blur', function() {
-            clearResults();
+
+        window.addEventListener('click', function(e){   
+            if (!document.getElementById('search-group').contains(e.target)){
+                resultList.hide();
+            }
         });
     
         function displayResults(results) {
@@ -105,8 +108,8 @@
         }
     
         function clearResults() {
-        resultList.empty();
-        resultList.hide();
+            resultList.empty();
+            resultList.hide();
         }
     });
 

@@ -1,0 +1,30 @@
+{% extends "frontend/base.html" %}
+{% load custom_filters %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='settings' %}
+  <div class="row m-0">
+    <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
+
+        <div style="
+        margin:  0 auto;
+        margin-top: 70px;
+        margin-bottom: 30px;
+        display: block;" class="landing-main-image">
+        <img src="/static/img/pug1.png" style="width:60%;margin:0 auto;display: block;" >
+<a type="button" style="background-color: #52628a;background-color: rgb(82, 98, 138);
+margin: 0 auto;
+display: block;
+margin-bottom: 60px;
+padding: 14px;
+font-size: 110%;" class="btn btn-primary text-white mt-4">Notifications coming soon</a>
+        </div>
+
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

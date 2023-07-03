@@ -219,11 +219,11 @@ def view_validator(request, index, dashboard=False):
     for cv in cached_validators:
         efficiency_sum += cv["efficiency"] / 100 if "efficiency" in cv else 0
         count_efficiency += 1
-        if cv["status"] == "active_ongoing":
+        if cv["status"] == "active_ongoing" or cv["status"] == "active_exiting" or cv["status"] == "active_slashed":
             dashboard_head_data["active_validators"] += 1
-        elif cv["status"] == "pending_queued":
+        elif cv["status"] == "pending_queued" or cv["status"] == "pending_initialized":
             dashboard_head_data["queued_validators"] += 1
-        elif cv["status"] == "exited_unslashed" or cv["status"] == "exited_slashed":
+        elif cv["status"] == "exited_unslashed" or cv["status"] == "exited_slashed" or cv["status"] == "withdrawal_possible" or cv["status"] == "withdrawal_done":
             dashboard_head_data["exited_validators"] += 1
     efficiency = (efficiency_sum / count_efficiency) if count_efficiency > 0 else 0
     
@@ -460,7 +460,7 @@ def search_validator_results(request):
         results.append({'text': "(" + str(v["validator_id"]) + ") " + v["public_key"], 'validator_id': v["validator_id"], 'public_key': v["public_key"],
                         'status': cached_validator['status'] if 'status' in cached_validator else "unknown",
                         'new': True})
-
+    print(results)
     return JsonResponse({'results': results, 'array': len(query_list) > 1})
 
 
@@ -599,6 +599,15 @@ def show_epoch(request, epoch):
         'epoch': epoch,
     }
     view = render(request, 'frontend/epoch.html', context)
+
+    return view
+
+
+@measure_execution_time
+def settings(request):
+    context = {
+    }
+    view = render(request, 'frontend/settings.html', context)
 
     return view
 

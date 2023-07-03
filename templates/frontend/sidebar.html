@@ -11,7 +11,7 @@
     </div>
     <div class='navigation-elm {% if current_page == "validators" %}navigation-elm-active{% endif %}'><a href="{% url 'show_validators' %}" class='nav-text'><i class="fas fa-fw fa-hdd"></i><span class='text-short'>Validators</a></span>
     </div>
-    <div class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</span></span>
+    <div class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><a href="{% url 'settings' %}" class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</a></span>
     </div>
     {% if not user.is_authenticated %}
     <div style="text-align: center;margin: 20px;">

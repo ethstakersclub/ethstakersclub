@@ -16,6 +16,13 @@
   font-size: 1rem;
   padding-left: 5.2rem;
 }
+.landing-main-image{
+  width:40%;
+}
+.search-result-area li{
+  cursor: pointer;
+  padding-left: 6px;
+}
 *,:after,:before{-webkit-box-sizing:border-box;box-sizing:border-box;}
 nav{display:block;}
 ul{margin-bottom:1rem;}
@@ -539,8 +546,12 @@ h1 {
   /*.row {
     flex-direction: column;
   }*/
+  .navbar-brand{
+    margin-right: 0;
+  }
+
   .epoch-slot{
-    padding-left: .2rem;
+    padding-left: .1rem;
   }
   .piechart-element {
     width: 100%;
@@ -770,7 +781,7 @@ a{
 }
 
 .header-top-logo-text{
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: 1px;
   margin: 0;
@@ -794,6 +805,9 @@ a{
   .monitoring-rank{
     text-shadow: 0 0 10px black;
   }
+  .landing-main-image{
+    width:60%;
+  }
 }
 
 @media only screen and (max-width:500px) {
@@ -811,6 +825,9 @@ a{
   }
   .piechart-container {
     width: 30%;
+  }
+  .landing-main-image{
+    width:80%;
   }
 }
 
