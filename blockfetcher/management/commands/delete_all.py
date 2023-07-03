@@ -15,7 +15,6 @@ class Command(BaseCommand):
             last_deleted = i
         EpochReward.objects.filter(pk__gte=last_deleted, pk__lte=last).delete()
         
-        '''
         Withdrawal.objects.all().delete()
         for i in range(0, Block.objects.all().count(), 10000):
             Block.objects.filter(pk__in=Block.objects.all().values_list('pk')[:10000]).delete()
@@ -26,4 +25,3 @@ class Command(BaseCommand):
             ValidatorBalance.objects.filter(pk__in=ValidatorBalance.objects.all().values_list('pk')[:10000]).delete()
         for i in range(0, MissedAttestation.objects.all().count(), 10000):
             MissedAttestation.objects.filter(pk__in=MissedAttestation.objects.all().values_list('pk')[:10000]).delete()
-        '''

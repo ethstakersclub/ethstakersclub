@@ -7,7 +7,8 @@ import json
 import requests
 from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, EXECUTION_WS_API_ENDPOINT, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
-                                    w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
+                                    w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
+                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee
 from web3.beacon import Beacon
@@ -99,7 +100,7 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
 
                     loop_epoch = int(slot / SLOTS_PER_EPOCH)
 
-                    while tasks_count > 50:
+                    while tasks_count > MAX_TASK_QUEUE:
                         print_status('info', f'task queue filled up ({tasks_count}), waiting...')
                         time.sleep(1)
                         tasks_count = get_scheduled_tasks_count()
@@ -135,7 +136,7 @@ def setup_staking_deposits(main_row, head_block):
                     print_status('info', f"Staking deposit blocks processed: {i}")
 
                 tasks_count = get_scheduled_tasks_count()
-                while tasks_count > 50:
+                while tasks_count > MAX_TASK_QUEUE:
                         print_status('info', f'task queue filled up ({tasks_count}), waiting...')
                         time.sleep(1)
                         tasks_count = get_scheduled_tasks_count()
@@ -235,7 +236,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                     last_balance_update_time = time.time()
                                     update_validators_task.delay(slot)
 
-                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE - 2:
+                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')
                                 task = load_epoch_rewards_task.delay(check_epoch - 2)
 
@@ -284,7 +285,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                     elapsed_time = time.time() - start_time
                     slots_per_second = (slots_processed - tasks_count) / elapsed_time
                     print_status('info', f"Slots per second: {slots_per_second}, Slots processed: {slots_processed}")
-                while tasks_count > 50:
+                while tasks_count > MAX_TASK_QUEUE:
                     print_status('info', f'task queue filled up ({tasks_count}), waiting...')
                     time.sleep(1)
                     tasks_count = get_scheduled_tasks_count()

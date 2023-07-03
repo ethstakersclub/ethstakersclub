@@ -1,5 +1,5 @@
 class UserdataRouter:
-    app_labels = ['users', 'admin', 'auth', 'contenttypes', 'sessions', 'allauth', 'account', 'socialaccount', 'sites']
+    app_labels = ['users', 'admin', 'auth', 'contenttypes', 'sessions', 'allauth', 'account', 'socialaccount', 'sites', 'captcha']
 
     def db_for_read(self, model, **hints):
         if model._meta.app_label in self.app_labels:

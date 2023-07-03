@@ -4,19 +4,17 @@
 
 {% block body %}
 <div class="container-fluid text-white" style="background-color: #151e33;">
-    <div class="row no-gutter">
+    <div class="row no-gutter m-0">
         <!-- The image half -->
         <div class="col-md-6 d-none d-md-flex bg-image"></div>
-
 
         <!-- The content half -->
         <div class="col-md-6">
             <div class="login d-flex align-items-center py-5">
 
-                <!-- Demo content-->
                 <div class="w-100">
-                    <div class="row">
-                        <div class="col-lg-10 col-xl-7 mx-auto">
+                    <div class="row m-0">
+                        <div class="col-lg-10 col-xl-7 mx-auto p-0">
                             <h3 class="display-4">Log in</h3>
                             
                             {% for error in form.non_field_errors %}
@@ -64,8 +62,8 @@
                                 </div>
                                 {% endcomment %}
                                 <button type="submit" class="btn btn-primary btn-block mb-2 rounded-pill shadow-sm text-white" style="background-color: rgb(82, 98, 138);">Log in</button>
-                                <div class="text-center d-flex justify-content-between mt-4"><p>Already have an account? <a href="{% url 'account_login' %}" class="font-italic text-muted"> 
-                                        <u>Log in here</u></a></p></div>
+                                <div class="text-center d-flex justify-content-between mt-4"><p>Don't have an account? <a href="{% url 'account_signup' %}" class="font-italic text-muted"> 
+                                        <u>Sign up here</u></a></p></div>
                             </form>
                         </div>
                     </div>

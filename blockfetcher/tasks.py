@@ -6,7 +6,8 @@ import requests
 import json
 import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
-    EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP
+    EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP, \
+    EPOCH_REWARDS_HISTORY_DISTANCE
 import requests
 from blockfetcher.models import Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
@@ -510,9 +511,8 @@ def send_request_post(what, data):
     return requests.post(url, headers=headers, data=data).json()
 
 
-@transaction.atomic
 def load_epoch_rewards(epoch):
-    logger.info("loading epoch " + str(epoch) + " consensus rewards")
+    logger.info("load epoch " + str(epoch) + " consensus rewards")
 
     if EpochReward.objects.filter(epoch=int(epoch)).exists():
         return
@@ -566,6 +566,19 @@ def load_epoch_rewards(epoch):
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_attester_slashings = int(block_reward["data"]["attester_slashings"])
 
         EpochReward.objects.bulk_create(epoch_rewards.values(), batch_size=512, ignore_conflicts=True)
+
+    logger.info(f"delete epoch {epoch} old consensus rewards")
+
+    epoch_reward_objects_to_delete = EpochReward.objects.filter(epoch__lt=epoch-EPOCH_REWARDS_HISTORY_DISTANCE)
+
+    first_pk_to_delete = epoch_reward_objects_to_delete.first().pk
+    last_pk_to_delete = epoch_reward_objects_to_delete.last().pk
+    batch_size = 10000
+    last_deleted = 0
+    for i in range(first_pk_to_delete, last_pk_to_delete - batch_size, batch_size):
+        EpochReward.objects.filter(pk__gte=i, pk__lte=i+batch_size).delete()
+        last_deleted = i
+    EpochReward.objects.filter(pk__gte=last_deleted, pk__lte=last_pk_to_delete).delete()
 
 
 def get_block_reward(execution_block, block):

@@ -10,4 +10,5 @@ urlpatterns = [
     path('', include('frontend.urls')),
     path('user/', include('allauth.urls')),
     path('user/', include('users.urls')),
+    path('captcha/', include('captcha.urls')),
 ]

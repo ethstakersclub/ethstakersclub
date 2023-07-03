@@ -152,7 +152,7 @@ def api_get_attestations(request):
     if len(validator_ids) > 10:
         epochs_to_check = 2
     if len(validator_ids) > 50:
-        epochs_to_check = 0.4
+        epochs_to_check = 1
 
     if to_slot == 'head':
         latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
