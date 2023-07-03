@@ -231,26 +231,11 @@ def make_balance_snapshot(slot, timestamp):
 
 @transaction.atomic
 def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
-    logger.info("aggregate missed attestations for epoch %s.", epoch)
-    missed_attestations = AttestationCommittee.objects.filter(slot__gte=epoch*SLOTS_PER_EPOCH, slot__lt=(epoch + 1)*SLOTS_PER_EPOCH).values("slot", "epoch", "index", "missed_attestation", "distance")
-    #existing_missed_attestations_for_epoch = list(MissedAttestation.objects\
-    #    .filter(slot__gte=epoch*SLOTS_PER_EPOCH, slot__lt=(epoch + 1)*SLOTS_PER_EPOCH)\
-    #    .values_list("validator_id", flat=True))
-
-    missed_attestation_to_create = []
-    total_attestations = 0
-    for m in missed_attestations:
-        total_attestations += len(m["distance"])
-        if m["missed_attestation"] != None:
-            for val in m["missed_attestation"]:
-                missed_attestation_to_create.append(MissedAttestation(slot=m["slot"], epoch=m["epoch"], index=m["index"], validator_id=val))
-                #if val in existing_missed_attestations_for_epoch:
-                #    existing_missed_attestations_for_epoch.remove(val)
-
-    missed_attestation_count = len(missed_attestation_to_create)
-    participation_percent = (total_attestations - missed_attestation_count) / total_attestations * 100 if total_attestations > 0 else 0
-
     logger.info("calculate average mev reward %s.", epoch)
+
+    if Block.objects.filter(slot_number__gte=(epoch + 1)*SLOTS_PER_EPOCH, slot_number__lt=(epoch + 2)*SLOTS_PER_EPOCH, empty=3).exists():
+        raise RuntimeError(f"Block in epoch_aggregate_missed_attestations_and_average_mev_reward still not processed, waiting...")
+
     blocks = Block.objects.filter(slot_number__gte=epoch*SLOTS_PER_EPOCH, slot_number__lt=(epoch + 1)*SLOTS_PER_EPOCH).values("total_reward", "empty", "slot_number")
     epoch_total_block_reward = 0
     epoch_total_proposed_blocks = 0
@@ -265,6 +250,26 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
         elif b["empty"] == 3:
             raise RuntimeError(f"Block {b['slot_number']} in epoch_aggregate_missed_attestations_and_average_mev_reward still not processed, waiting...")
     average_block_reward = epoch_total_block_reward / epoch_total_proposed_blocks if epoch_total_proposed_blocks > 0 else 0
+
+    logger.info("aggregate missed attestations for epoch %s.", epoch)
+
+    missed_attestations = AttestationCommittee.objects.filter(slot__gte=epoch*SLOTS_PER_EPOCH, slot__lt=(epoch + 1)*SLOTS_PER_EPOCH).values("slot", "epoch", "index", "missed_attestation", "distance")
+    existing_missed_attestations_for_epoch = list(MissedAttestation.objects\
+        .filter(slot__gte=epoch*SLOTS_PER_EPOCH, slot__lt=(epoch + 1)*SLOTS_PER_EPOCH)\
+        .values_list("validator_id", flat=True))
+
+    missed_attestation_to_create = []
+    total_attestations = 0
+    for m in missed_attestations:
+        total_attestations += len(m["distance"])
+        if m["missed_attestation"] != None:
+            for val in m["missed_attestation"]:
+                missed_attestation_to_create.append(MissedAttestation(slot=m["slot"], epoch=m["epoch"], index=m["index"], validator_id=val))
+                if val in existing_missed_attestations_for_epoch:
+                    existing_missed_attestations_for_epoch.remove(val)
+
+    missed_attestation_count = len(missed_attestation_to_create)
+    participation_percent = (total_attestations - missed_attestation_count) / total_attestations * 100 if total_attestations > 0 else 0
 
     epoch_object = Epoch.objects.get(epoch=epoch)
     epoch_object.participation_percent = participation_percent
@@ -295,9 +300,9 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
     epoch_object.save()
 
     MissedAttestation.objects.bulk_create(missed_attestation_to_create, batch_size=1024, ignore_conflicts=True)
-    #if len(existing_missed_attestations_for_epoch) > 0:
-    #    logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
-    #    MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
+    if len(existing_missed_attestations_for_epoch) > 0:
+        logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
+        MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
 
 
 @transaction.atomic
@@ -725,20 +730,16 @@ def load_validators(slot):
     sync_committee_participation_mapping = {int(tag): int(count) for tag, count in sync_committee_participation_count}
 
     logger.info("calculate missed attestation at date")
-    timestamp = timezone.make_aware(datetime.now(), timezone=timezone.utc).date()
-    timestamp_target = timestamp - timezone.timedelta(days=1)
+    
+    timestamp_target = timezone.make_aware(datetime.now(), timezone=timezone.utc).date()
 
-    try:
-        lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 500), slot + (MAX_SLOTS_PER_DAY + 500)), timestamp__gt=timestamp)\
-            .order_by('slot_number').first().slot_number
-    except:
-        lowest_slot_at_date = 999999999
+    lowest_slot_at_date = 999999999
     try:
         lowest_slot_at_date_target = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 500), slot + (MAX_SLOTS_PER_DAY + 500)), timestamp__gt=timestamp_target)\
             .order_by('slot_number').first().slot_number
     except:
         lowest_slot_at_date_target = 999999999
-    
+
     validator_missed_attestations = MissedAttestation.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_attestations_dict = {v['validator_id']: v['count'] for v in validator_missed_attestations}
 
