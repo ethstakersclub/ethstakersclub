@@ -8,7 +8,7 @@ import requests
 from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, EXECUTION_WS_API_ENDPOINT, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
-                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE
+                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee
 from web3.beacon import Beacon
@@ -54,22 +54,23 @@ def create_sync_committee(finalized_check_epoch):
     sync_period = sync_check_epoch / 256
     sync_committee, created = SyncCommittee.objects.get_or_create(period=sync_period)
 
-    if created or sync_committee.validator_ids == None:
-        print_status('info', "set up new sync committee for slot " + str(sync_check_slot) + " epoch " + str(sync_check_epoch))
+    if finalized_check_epoch > (ALTAIR_EPOCH - 1000):
+        if created or sync_committee.validator_ids == None:
+            print_status('info', "set up new sync committee for slot " + str(sync_check_slot) + " epoch " + str(sync_check_epoch))
 
-        url = BEACON_API_ENDPOINT + "/eth/v1/beacon/states/" + str(sync_check_slot) + "/sync_committees?epoch=" + str(sync_check_epoch)
-        sync_committee_state = requests.get(url).json()
+            url = BEACON_API_ENDPOINT + "/eth/v1/beacon/states/" + str(sync_check_slot) + "/sync_committees?epoch=" + str(sync_check_epoch)
+            sync_committee_state = requests.get(url).json()
 
-        before_altair = False
-        if "code" in sync_committee_state and sync_committee_state["code"] == 400:
-            print(sync_committee_state["message"])
-            before_altair = True
-        if not before_altair:
-            print_status('info', "sync committee after altair, proceeding")
+            before_altair = False
+            if "code" in sync_committee_state and sync_committee_state["code"] == 400:
+                print(sync_committee_state["message"])
+                before_altair = True
+            if not before_altair:
+                print_status('info', "sync committee after altair, proceeding")
 
-            sync_validators = [int(s) for s in sync_committee_state["data"]["validators"]]
-            sync_committee.validator_ids = sync_validators
-            sync_committee.save()
+                sync_validators = [int(s) for s in sync_committee_state["data"]["validators"]]
+                sync_committee.validator_ids = sync_validators
+                sync_committee.save()
 
 
 def setup_epochs(main_row, last_slot_processed, loop_epoch):
