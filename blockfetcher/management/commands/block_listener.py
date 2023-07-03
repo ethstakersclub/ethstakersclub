@@ -54,7 +54,7 @@ def create_sync_committee(finalized_check_epoch):
     sync_period = sync_check_epoch / 256
     sync_committee, created = SyncCommittee.objects.get_or_create(period=sync_period)
 
-    if finalized_check_epoch > (ALTAIR_EPOCH - 1000):
+    if finalized_check_epoch > (ALTAIR_EPOCH - 3000):
         if created or sync_committee.validator_ids == None:
             print_status('info', "set up new sync committee for slot " + str(sync_check_slot) + " epoch " + str(sync_check_epoch))
 
