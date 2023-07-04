@@ -497,7 +497,11 @@
             },
           },
           {% if dashboard %}
-          { key: 'validator_id', label: 'Validator ID' },
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + value;
+            },
+          },
           {% endif %}
           { key: 'distance', label: 'Distance',
             renderFunction: (value, item) => {
@@ -530,6 +534,9 @@
           { key: 'fee_recipient', label: 'Recipient',
             renderFunction: (value, item) => {
               return elideString(value)
+            },
+            tooltipFunction: (value, item) => {
+              return value
             },
           },
           { key: 'total_reward', label: 'Reward',
@@ -617,6 +624,25 @@
             renderFunction: (value, item) => {
               val_formatted =  value.toLocaleString().replace(/\./g, ',');
               return (value > 0 ? "+" + val_formatted : val_formatted) + " GWei"
+            },
+            tooltipFunction: (value, item) => {
+              res = 'Att. Head Vote: ' + item.head.toLocaleString().replace(/\./g, ',') + "\n" +
+                    'Att. Target: ' + item.target.toLocaleString().replace(/\./g, ',') + "\n" +
+                    'Att. Source: ' + item.source.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.sync_reward != 0)
+                res += 'Sync Reward: ' + item.sync_reward.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.sync_penalty != 0)
+                res += 'Sync Penalty: ' + item.sync_penalty.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.block_attestations != 0)
+                res += 'Slot Attestations: ' + item.block_attestations.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.block_sync_aggregate != 0)
+                res += 'Slot Sync Aggregate: ' + item.block_sync_aggregate.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.block_proposer_slashings != 0)
+                res += 'Slot Proposer Slashings: ' + item.block_proposer_slashings.toLocaleString().replace(/\./g, ',') + "\n"
+              if(item.block_attester_slashings != 0)
+                res += 'Slot Attester Slashings: ' + item.block_attester_slashings.toLocaleString().replace(/\./g, ',') + "\n"
+              
+              return res.trim();
             },
           },
           { key: 'attestations', label: 'Attestet',
@@ -764,6 +790,15 @@
     }
   }
   const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
   app.component("table-component", tableComponent);
   const root = app.mount("#app");
   

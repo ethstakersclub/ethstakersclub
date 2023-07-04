@@ -83,6 +83,15 @@
     },
   }
   const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
   app.component("table-component", tableComponent);
   app.mount("#app");
 

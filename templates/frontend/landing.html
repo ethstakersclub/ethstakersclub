@@ -186,6 +186,15 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor you
     },
   }
   const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
   app.component("table-component", tableComponent);
   app.mount("#app");
 

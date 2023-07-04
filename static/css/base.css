@@ -1115,3 +1115,7 @@ h4 {
 }
 
 /* - validator timeline */
+
+.tippy-content {
+    white-space: pre-line;
+}

@@ -217,10 +217,10 @@ def view_validator(request, index, dashboard=False):
     efficiency_sum = 0
     count_efficiency = 0
     for cv in cached_validators:
-        efficiency_sum += cv["efficiency"] / 100 if "efficiency" in cv else 0
-        count_efficiency += 1
         if cv["status"] == "active_ongoing" or cv["status"] == "active_exiting" or cv["status"] == "active_slashed":
             dashboard_head_data["active_validators"] += 1
+            efficiency_sum += cv["efficiency"] / 100 if "efficiency" in cv else 0
+            count_efficiency += 1
         elif cv["status"] == "pending_queued" or cv["status"] == "pending_initialized":
             dashboard_head_data["queued_validators"] += 1
         elif cv["status"] == "exited_unslashed" or cv["status"] == "exited_slashed" or cv["status"] == "withdrawal_possible" or cv["status"] == "withdrawal_done":

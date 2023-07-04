@@ -27,12 +27,11 @@
   <div class="row mx-0 pt-2 mt-1" style="background: #111a2e;">
     <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
-        <div class="element-header">Sync-Committee - Live Monitoring</div>
         <div>
             <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
             :key-prop="'slot'" :allow-sort="false" fetch-strategy="slot_range" :api-endpoint="'/api/sync_committee_participation'"
             :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" :rows-per-page-options="[50]"
-            :live-update="true" />
+            :live-update="true" :title="'Sync-Committee - Live Monitoring'" />
         </div>
       </div>
     </div>
@@ -66,9 +65,21 @@
         dashboardSyncCommitteeParticipationsJsonData: [],
         dashboardSyncCommitteeParticipationsTableColumns: [
           { key: 'period', label: 'Period' },
-          { key: 'epoch', label: 'Epoch' },
-          { key: 'slot', label: 'Slot' },
-          { key: 'validator_id', label: 'Validator ID' },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'slot', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + value;
+            },
+          },
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + value;
+            },
+          },
           { key: 'block_timestamp', label: 'Time',
             renderFunction: (value, item) => {
               return calculateTimeDifference(value)
@@ -100,6 +111,15 @@
     },
   }
   const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
   app.component("table-component", tableComponent);
   app.mount("#app");
 

@@ -27,11 +27,10 @@
   <div class="row mx-0 pt-2" style="background: #111a2e;">
     <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
-        <div class="element-header">Attestation Live Monitoring</div>
         <div>
-          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns" :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% elif validator_count <= 9 %}50{% elif validator_count <= 10 %}55{% elif validator_count <= 11 %}60{% elif validator_count <= 12 %}65{% elif validator_count <= 13 %}70{% elif validator_count <= 14 %}75{% elif validator_count <= 15 %}80{% elif validator_count <= 16 %}85{% elif validator_count <= 17 %}90{% elif validator_count <= 18 %}95{% else %}100{% endif %}]"
+          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns" :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% else %}50{% endif %}]"
            :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :allow-sort="false" :key-prop="'slot'"
-           :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'" :live-update="true" />
+           :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'" :live-update="true" :title="'Attestation Live Monitoring'" />
         </div>
       </div>
     </div>
@@ -64,14 +63,26 @@
         rowsPerPage: [50],
         attestationsJsonData: [],
         attestationsTableColumns: [
-          { key: 'epoch', label: 'Epoch' },
-          { key: 'slot', label: 'Slot' },
+          { key: 'epoch', label: 'Epoch',
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'slot', label: 'Slot',
+            link: (value, item) => {
+              return '/slot/' + value;
+            },
+          },
           { key: 'block_timestamp', label: 'Time',
             renderFunction: (value, item) => {
               return calculateTimeDifference(value)
             },
           },
-          { key: 'validator_id', label: 'Validator ID' },
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + value;
+            },
+          },
           { key: 'distance', label: 'Distance',
             renderFunction: (value, item) => {
               return value != 255 ? value : '-'
@@ -99,6 +110,15 @@
     },
   }
   const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
   app.component("table-component", tableComponent);
   app.mount("#app");
 

@@ -146,16 +146,28 @@ def api_get_attestations(request):
 
     to_slot = request.GET.get('to_slot')
 
+    include_pending = request.GET.get('include_pending', 'auto')
+    if include_pending == 'auto':
+        if len(validator_ids) > 10:
+            include_pending = False
+        else:
+            include_pending = True
+    else:
+        include_pending = bool(include_pending)
+
     epochs_to_check = 5
     if len(validator_ids) > 5:
         epochs_to_check = 3
     if len(validator_ids) > 10:
         epochs_to_check = 2
     if len(validator_ids) > 50:
-        epochs_to_check = 1
+        epochs_to_check = 0.4
 
     if to_slot == 'head':
-        latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
+        if include_pending:
+            latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
+        else:
+            latest_block = Block.objects.filter(proposer__isnull=False).exclude(block_number=None).order_by("-slot_number").first()
         to_slot = latest_block.slot_number
     else:
         to_slot = int(to_slot)
