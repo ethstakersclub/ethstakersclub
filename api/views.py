@@ -232,7 +232,7 @@ def get_attestations(index_numbers, from_slot, to_slot):
             "epoch": attestation['epoch'],
             "distance": attestation['distance'][attestation['validator_ids'].index(id)],
             "slot": attestation['slot'],
-            "block_timestamp": calc_time_of_slot(attestation['slot']).isoformat(),
+            "block_timestamp": calc_time_of_slot(attestation['slot'] + 1).isoformat(),
             "validator_id": id
         }
         for attestation in attestations

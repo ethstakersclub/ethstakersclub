@@ -82,7 +82,7 @@ def fetch_mev_rewards_task(self, lowest_slot, cursor_slot):
         self.retry(countdown=5)
 
 
-@shared_task(bind=True, soft_time_limit=120, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+@shared_task(bind=True, soft_time_limit=800, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
 def epoch_aggregate_missed_attestations_and_average_mev_reward_task(self, epoch):
     try:
         epoch_aggregate_missed_attestations_and_average_mev_reward(epoch)
