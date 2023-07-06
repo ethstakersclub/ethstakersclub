@@ -154,8 +154,6 @@
         type: 'line',
         yAxisID: 'y2',
         borderWidth: 1.5,
-        pointRadius: 1,
-        pointStyle: false,
       },
     ]
   };
@@ -176,6 +174,8 @@
           display: false
         },
         tooltip: {
+          mode: 'index',
+          intersect: false,
           callbacks: {
             label: function(context) {
               let label = context.dataset.label || '';
@@ -193,6 +193,12 @@
             }
           }
         }
+      },
+      radius: 0,
+      clip: false,
+      hover: {
+        mode: 'index',
+        intersect: false,
       },
       elements: {
         bar: {

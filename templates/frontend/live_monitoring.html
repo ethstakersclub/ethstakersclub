@@ -153,8 +153,6 @@ const data = {
       type: 'line',
       yAxisID: 'y2',
       borderWidth: 1.5,
-      pointRadius: 1,
-      pointStyle: false,
     },
   ]
 };
@@ -175,6 +173,8 @@ var attestationLineChart = new Chart(ctx, {
         display: false
       },
       tooltip: {
+        mode: 'index',
+        intersect: false,
         callbacks: {
           label: function(context) {
             let label = context.dataset.label || '';
@@ -192,6 +192,12 @@ var attestationLineChart = new Chart(ctx, {
           }
         }
       }
+    },
+    radius: 0,
+    clip: false,
+    hover: {
+      mode: 'index',
+      intersect: false,
     },
     elements: {
       bar: {
