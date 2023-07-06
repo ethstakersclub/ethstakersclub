@@ -38,6 +38,9 @@
         epochsJsonData: [],
         epochsTableColumns: [
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/epoch/' + value;
             },

@@ -41,16 +41,29 @@
         blocksJsonData: [],
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + item.slot_number;
             },
           },
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/epoch/' + value;
             },
           },
-          { key: 'block_number', label: 'Block Number' },
+          { key: 'block_number', label: 'Block Number',
+            renderFunction: (value, item) => {
+              console.log(value)
+              if(value == "" || value === null)
+                return "pending"
+              return value.toLocaleString().replace(/\./g, ',')
+            },
+          },
           { key: 'proposer', label: 'Proposer' },
           { key: 'total_reward', label: 'Total Reward',
             renderFunction: (value, item) => {

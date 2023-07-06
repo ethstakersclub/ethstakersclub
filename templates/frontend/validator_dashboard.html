@@ -227,7 +227,7 @@
       <div class='piechart-label'>
         <div class='label-heading'>Attestation Efficiency (100 epochs):</div>
         <p class='small'>Current Average Efficiency: {{ average_attestation_efficiency|floatformat:2 }}%<br/>
-                         Total Attestations: {{ total_attestations }}
+                         Total Attestations: {{ total_attestations|commaSeparatorNumber }}
       </div>
       <div class='piechart-percent main-color'>{{ efficiency }}%</div>
       <div class='piechart-container'>
@@ -482,11 +482,17 @@
         attestationsJsonData: [],
         attestationsTableColumns: [
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/epoch/' + value;
             },
           },
           { key: 'slot', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + item.slot;
             },
@@ -526,11 +532,18 @@
         blocksJsonData: [],
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + item.slot_number;
             },
           },
-          { key: 'block_number', label: 'Block'},
+          { key: 'block_number', label: 'Block',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
+          },
           { key: 'fee_recipient', label: 'Recipient',
             renderFunction: (value, item) => {
               return elideString(value)
@@ -588,6 +601,9 @@
         withdrawalsJsonData: [],
         withdrawalsTableColumns: [
           { key: 'block__slot_number', label: 'Slot', 
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + item.block__slot_number;
             },
@@ -618,6 +634,9 @@
           { key: 'epoch', label: 'Epoch',
             link: (value, item) => {
               return '/epoch/' + value;
+            },
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
             },
           },
           { key: 'total_reward', label: 'Reward',
@@ -664,11 +683,17 @@
         dashboardSyncCommitteeParticipationsTableColumns: [
           { key: 'period', label: 'Period' },
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/epoch/' + value;
             },
           },
           { key: 'slot', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + item.slot;
             },
@@ -880,7 +905,7 @@ var lineChart = new Chart(ctx, {
             }
             if (context.parsed.y !== null) {
                 if(context.dataset.yAxisID != "y2")
-                  label += context.parsed.y.toFixed(6);
+                  label += context.parsed.y.toFixed(6) + ' {{ currency_name }}';
                 else
                   label += context.parsed.y;
             }

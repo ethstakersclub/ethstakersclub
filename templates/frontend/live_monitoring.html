@@ -64,11 +64,17 @@
         attestationsJsonData: [],
         attestationsTableColumns: [
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/epoch/' + value;
             },
           },
           { key: 'slot', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
             link: (value, item) => {
               return '/slot/' + value;
             },
