@@ -70,7 +70,7 @@ th:first-child {
             </tr>
             <tr>
                 <th><i id="average-block-reward-tooltip" class="far fa-question-circle question-tooltip"></i>Average Block Reward (MEV)</th>
-                <td>{{ epoch.average_block_reward|gweiToEth }} {{ currency_name }}</td>
+                <td>{{ epoch.average_block_reward|weiToEthRound }} {{ currency_name }}</td>
             </tr>
             <tr class="divider">
                 <th><i id="active-validators-tooltip" class="far fa-question-circle question-tooltip"></i>Active Validators</th>

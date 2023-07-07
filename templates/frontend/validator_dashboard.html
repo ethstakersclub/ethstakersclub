@@ -99,7 +99,28 @@
                   <div>
                   <i class="far fa-question-circle question-tooltip"></i>Deposit
                   </div>
-                
+                  {% if validator_info.staking_deposits %}
+                  <table class="table table-dark mb-0 mt-2">
+                    <thead>
+                      <tr>
+                        <th>Block</th>
+                        <th>Amount</th>
+                        <th>Withdrawal Cred.</th>
+                        <th>Transaction</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for sd in validator_info.staking_deposits %}
+                      <tr>
+                        <td>{{ sd.block_number|commaSeparatorNumber }}</td>
+                        <td>{{ sd.amount|gweiToEthRound }} {{ currency_name }}</td>
+                        <td>0x{{ sd.withdrawal_credentials|elide_string }}</td>
+                        <td>{{ sd.transaction_hash|elide_string }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
                 </summary>
                 <p>To ensure that transactions never end up in a reorged block, the chain requires them to remain in the deposit contract for at least 2048 blocks. Additionally, 64 Epochs must pass before the beacon-chain acknowledges it. During these Epochs, validators vote on newly received deposits.</p>
               </details>
@@ -483,7 +504,7 @@
         attestationsTableColumns: [
           { key: 'epoch', label: 'Epoch',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/epoch/' + value;
@@ -491,7 +512,7 @@
           },
           { key: 'slot', label: 'Slot',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/slot/' + item.slot;
@@ -533,7 +554,7 @@
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/slot/' + item.slot_number;
@@ -541,7 +562,7 @@
           },
           { key: 'block_number', label: 'Block',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
           },
           { key: 'fee_recipient', label: 'Recipient',
@@ -602,7 +623,7 @@
         withdrawalsTableColumns: [
           { key: 'block__slot_number', label: 'Slot', 
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/slot/' + item.block__slot_number;
@@ -636,30 +657,30 @@
               return '/epoch/' + value;
             },
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
           },
           { key: 'total_reward', label: 'Reward',
             renderFunction: (value, item) => {
-              val_formatted =  value.toLocaleString().replace(/\./g, ',');
+              val_formatted =  formatNumber(value);
               return (value > 0 ? "+" + val_formatted : val_formatted) + " GWei"
             },
             tooltipFunction: (value, item) => {
-              res = 'Att. Head Vote: ' + item.head.toLocaleString().replace(/\./g, ',') + "\n" +
-                    'Att. Target: ' + item.target.toLocaleString().replace(/\./g, ',') + "\n" +
-                    'Att. Source: ' + item.source.toLocaleString().replace(/\./g, ',') + "\n"
+              res = 'Att. Head Vote: ' + formatNumber(item.head) + "\n" +
+                    'Att. Target: ' + formatNumber(item.target) + "\n" +
+                    'Att. Source: ' + formatNumber(item.source) + "\n"
               if(item.sync_reward != 0)
-                res += 'Sync Reward: ' + item.sync_reward.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Sync Reward: ' + formatNumber(item.sync_reward) + "\n"
               if(item.sync_penalty != 0)
-                res += 'Sync Penalty: ' + item.sync_penalty.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Sync Penalty: ' + formatNumber(item.sync_penalty) + "\n"
               if(item.block_attestations != 0)
-                res += 'Slot Attestations: ' + item.block_attestations.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Slot Attestations: ' + formatNumber(item.block_attestations) + "\n"
               if(item.block_sync_aggregate != 0)
-                res += 'Slot Sync Aggregate: ' + item.block_sync_aggregate.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Slot Sync Aggregate: ' + formatNumber(item.block_sync_aggregate) + "\n"
               if(item.block_proposer_slashings != 0)
-                res += 'Slot Proposer Slashings: ' + item.block_proposer_slashings.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Slot Proposer Slashings: ' + formatNumber(item.block_proposer_slashings) + "\n"
               if(item.block_attester_slashings != 0)
-                res += 'Slot Attester Slashings: ' + item.block_attester_slashings.toLocaleString().replace(/\./g, ',') + "\n"
+                res += 'Slot Attester Slashings: ' + formatNumber(item.block_attester_slashings) + "\n"
               
               return res.trim();
             },
@@ -684,7 +705,7 @@
           { key: 'period', label: 'Period' },
           { key: 'epoch', label: 'Epoch',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/epoch/' + value;
@@ -692,7 +713,7 @@
           },
           { key: 'slot', label: 'Slot',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/slot/' + item.slot;

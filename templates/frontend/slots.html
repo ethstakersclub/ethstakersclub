@@ -42,7 +42,7 @@
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/slot/' + item.slot_number;
@@ -50,7 +50,7 @@
           },
           { key: 'epoch', label: 'Epoch',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/epoch/' + value;
@@ -61,7 +61,7 @@
               console.log(value)
               if(value == "" || value === null)
                 return "pending"
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
           },
           { key: 'proposer', label: 'Proposer' },

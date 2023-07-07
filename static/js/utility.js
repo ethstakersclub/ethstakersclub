@@ -72,3 +72,12 @@ function elideStringBack(string) {
         return string.slice(0, 15) + "..."
     }
 }
+
+function formatNumber(value){
+    try{
+        return value.toLocaleString().replace(/\./g, ',')
+    }
+    catch(error){
+        return ""
+    }
+}

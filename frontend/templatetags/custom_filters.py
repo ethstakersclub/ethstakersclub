@@ -11,9 +11,18 @@ def weiToEth(value):
 
 
 @register.filter
-def gweiToEth(value):
+def weiToEthRound(value):
     try:
         res = float(value) / 10**18
+        return round(res, 5)
+    except:
+        return 0
+
+
+@register.filter
+def gweiToEthRound(value):
+    try:
+        res = float(value) / 10**9
         return round(res, 5)
     except:
         return 0
@@ -25,3 +34,11 @@ def commaSeparatorNumber(value):
         return f'{value:,}'
     except:
         return "0"
+    
+
+@register.filter
+def elide_string(string):
+    if len(string) <= 12:
+        return string
+    else:
+        return string[:4] + "..." + string[-5:]

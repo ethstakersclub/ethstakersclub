@@ -180,6 +180,7 @@ def view_validator(request, index, dashboard=False):
                 else:
                     activation_epoch_estimate = calculate_activation_epoch(int(cached_validator["pre_val"]) ,validator_update_epoch, validators_per_epoch, cached_validator["status"], validator.activation_epoch)
                     seconds_till_activation = ((activation_epoch_estimate * SLOTS_PER_EPOCH) - current_slot) * SECONDS_PER_SLOT
+                print("seconds:", seconds_till_activation)
                 validator_info = {
                             "public_key": str(validator.public_key),
                             "validator_id": int(validator.validator_id),
@@ -197,6 +198,7 @@ def view_validator(request, index, dashboard=False):
                             "pre_val": int(cached_validator["pre_val"]),
                             "validators_per_epoch": validators_per_epoch,
                             "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
+                            "staking_deposits": validator.stakingdeposit_set.all(),
                             }
             except:
                 validator_info = {}

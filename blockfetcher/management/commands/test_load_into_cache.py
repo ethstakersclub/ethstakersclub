@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from blockfetcher.tasks import load_validators
+from blockfetcher.task_process_validators import process_validators
 from ethstakersclub.settings import BEACON_API_ENDPOINT, SLOTS_PER_EPOCH
 import requests
 from django.core.cache import cache
@@ -17,4 +17,4 @@ class Command(BaseCommand):
         cache.set("head_slot", head_slot, timeout=10000)
         cache.set("head_epoch", head_epoch, timeout=10000)
 
-        load_validators(head_slot)
+        process_validators(head_slot)

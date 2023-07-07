@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, load_validators, update_validators_task,\
+from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, process_validators_task,\
                                load_block_task, make_balance_snapshot_task, load_epoch_rewards_task, \
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task
 import asyncio
@@ -180,7 +180,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
     if last_slot_processed == 0:
         load_current_state(main_row)
         print_status('info', 'Setup validators')
-        validator_task = update_validators_task.delay(head_slot)
+        validator_task = process_validators_task.delay(head_slot)
         while not validator_task.ready():
             time.sleep(1)
 
@@ -237,7 +237,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                 sec_since_last_balance_update = (time.time() - last_balance_update_time)
                                 if sec_since_last_balance_update > 200:
                                     last_balance_update_time = time.time()
-                                    update_validators_task.delay(slot)
+                                    process_validators_task.delay(slot)
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')

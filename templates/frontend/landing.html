@@ -95,16 +95,26 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor you
         blocksJsonData: [],
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
+            renderFunction: (value, item) => {
+                return formatNumber(value);
+            },
             link: (value, item) => {
               return '/slot/' + item.slot_number;
             },
           },
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+                return formatNumber(value);
+            },
             link: (value, item) => {
                 return '/epoch/' + value;
             },
           },
-          { key: 'block_number', label: 'Block Number' },
+          { key: 'block_number', label: 'Block Number',
+            renderFunction: (value, item) => {
+                return formatNumber(value);
+            },
+          },
           { key: 'proposer', label: 'Proposer' },
           { key: 'total_reward', label: 'Total Reward',
             renderFunction: (value, item) => {
@@ -141,6 +151,9 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor you
         epochsJsonData: [],
         epochsTableColumns: [
           { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+                return formatNumber(value);
+            },
             link: (value, item) => {
                 return '/epoch/' + value;
             },

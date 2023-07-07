@@ -39,7 +39,7 @@
         epochsTableColumns: [
           { key: 'epoch', label: 'Epoch',
             renderFunction: (value, item) => {
-              return value.toLocaleString().replace(/\./g, ',')
+              return formatNumber(value);
             },
             link: (value, item) => {
               return '/epoch/' + value;
