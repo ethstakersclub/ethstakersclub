@@ -106,4 +106,4 @@ LOGOUT_REDIRECT_URL = 'dashboard_empty'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-from production_settings import *
+from settings import *
