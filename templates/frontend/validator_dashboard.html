@@ -302,7 +302,7 @@
     </div>
     <div class="col-xl-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
-        <div class="element-header">Block Proposals</div>
+        <div class="element-header">Block Proposals<span id="nextProposalTimer" class="ml-2"></span></div>
         <div>
           <table-component :data="blocksJsonData" :columns="blocksTableColumns" :allow-sort="true" :key-prop="'slot_number'" />
         </div>
@@ -1160,5 +1160,46 @@ var efficiencyChart = new Chart(ctx, {
       console.error(error);
     });
   }
+
+  
+
+
+
+
+const nextProposalTimerElement = document.getElementById('nextProposalTimer');
+
+function startCountdown(timestamp, prefix) {
+  const timerInterval = setInterval(() => {
+    const remainingTime = new Date(timestamp) - new Date();
+    
+    const minutes = Math.floor(remainingTime / (1000 * 60));
+    const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+
+    nextProposalTimerElement.textContent = `(${prefix} ${minutes}:${seconds.toString().padStart(2, '0')})`;
+
+    if (remainingTime <= 0) {
+      clearInterval(timerInterval);
+      nextProposalTimerElement.textContent = '';
+    }
+
+    remainingTime -= 1000;
+  }, 1000);
+}
+
+axios.get("{% url 'api:check_if_proposal_scheduled' %}?validators={{ validator_array }}")
+  .then(response => {
+    const { proposal_scheduled, next_block_not_in, next_block_in } = response.data;
+
+    if (proposal_scheduled === 'Yes') {
+      startCountdown(next_block_in, "Proposal in ");
+    } else if (proposal_scheduled === 'No') {
+      startCountdown(next_block_not_in, "No proposal imminent in the next ");
+    } else {
+      nextProposalTimerElement.textContent = '(schedule update pending)';
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
 </script>
 {% endblock %}

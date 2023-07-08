@@ -693,3 +693,39 @@ def get_validators(cursor, range_value):
                               })
     
     return validator_data
+
+
+@measure_execution_time
+def check_if_proposal_scheduled(request):
+    validator_ids = extract_validator_ids(request)
+    if isinstance(validator_ids, JsonResponse):
+        return validator_ids
+
+    current_slot = get_current_slot_from_cache()
+
+    pending_blocks = Block.objects.filter(proposer__isnull=False, timestamp__gt=timezone.now(), slot_number__gt=current_slot).order_by("slot_number")
+    print(len(pending_blocks))
+
+    if len(pending_blocks) > 0:
+        next_proposal = pending_blocks.filter(proposer__in=validator_ids)
+        if not next_proposal.exists():
+            next_block_not_in = pending_blocks.last().timestamp.isoformat()
+            next_block_in = 0
+            proposal_scheduled = "No"
+        else:
+            next_block_not_in = 0
+            next_block_in = next_proposal.first().timestamp.isoformat()
+            proposal_scheduled = "Yes"
+    else:
+        next_block_not_in = 0
+        next_block_in = 0
+        proposal_scheduled = "update pending"
+
+    response = {
+        'success': True,
+        'proposal_scheduled': proposal_scheduled,
+        'next_block_not_in': next_block_not_in,
+        'next_block_in': next_block_in,
+    }
+
+    return JsonResponse(response)
