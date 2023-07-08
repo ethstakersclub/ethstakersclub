@@ -5,7 +5,8 @@
 __pycache__
 db.sqlite3
 media
-production_settings.py
+/production_settings.py
+/settings.py
 .idea
 user_data.db
 

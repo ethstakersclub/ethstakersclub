@@ -6,7 +6,7 @@ import asyncio
 import json
 import requests
 from websockets import connect
-from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, EXECUTION_WS_API_ENDPOINT, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
+from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
                                     SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH
 import requests
