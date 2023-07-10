@@ -2,16 +2,14 @@ from django.core.management.base import BaseCommand
 from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, process_validators_task,\
                                load_block_task, make_balance_snapshot_task, load_epoch_rewards_task, \
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task
-import asyncio
 import json
 import requests
 from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
-                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH
+                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee
-from web3.beacon import Beacon
 from datetime import datetime
 from django.utils import timezone
 import time
@@ -21,10 +19,11 @@ from django.core.cache import cache
 from blockfetcher.management.commands.test_get_pending_celery_tasks import get_scheduled_tasks_count
 from blockfetcher.util import print_status
 import sseclient
+from blockfetcher.beacon_api import BeaconAPI
 
 
 count = 0
-beacon = Beacon(BEACON_API_ENDPOINT)
+beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 
 
 def send_request_post(what, data):
@@ -38,12 +37,12 @@ def send_request_post(what, data):
 
 
 def load_current_state(main_row):
-    current_state = beacon.get_beacon_state()["data"]
+    current_state = beacon.get_finality_checkpoints("head")["data"]
 
-    main_row.finalized_checkpoint_epoch = int(current_state["finalized_checkpoint"]["epoch"])
-    main_row.finalized_checkpoint_root = str(current_state["finalized_checkpoint"]["root"])
-    main_row.justified_checkpoint_epoch = int(current_state["current_justified_checkpoint"]["epoch"])
-    main_row.justified_checkpoint_root = str(current_state["current_justified_checkpoint"]["root"])
+    main_row.finalized_checkpoint_epoch = int(current_state["finalized"]["epoch"])
+    main_row.finalized_checkpoint_root = str(current_state["finalized"]["root"])
+    main_row.justified_checkpoint_epoch = int(current_state["current_justified"]["epoch"])
+    main_row.justified_checkpoint_root = str(current_state["current_justified"]["root"])
 
     main_row.save()
 
@@ -334,10 +333,11 @@ class Command(BaseCommand):
         client = sseclient.SSEClient(response)
         last_balance_update_time = time.time()
         for event in client.events():
-            event_slot=int(json.loads(event.data)["slot"])
+            event_slot=int(json.loads(event.data)["slot"]) - 5
             if str(event.event) == "chain_reorg":
                 print("reorg")
                 print(event_slot)
+                print(str(event))
                 loop_epoch = int((event_slot-1) / SLOTS_PER_EPOCH)
                 last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, event_slot, loop_epoch, last_balance_update_time, True)
             else:

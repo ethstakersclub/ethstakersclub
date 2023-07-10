@@ -495,16 +495,6 @@ def load_block(slot, epoch):
         new_block.save()
 
 
-def send_request_post(what, data):
-    url = BEACON_API_ENDPOINT + what
-    headers = {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
-    }
-
-    return requests.post(url, headers=headers, data=data).json()
-
-
 def load_epoch_rewards(epoch):
     logger.info("load epoch " + str(epoch) + " consensus rewards")
 
@@ -512,11 +502,11 @@ def load_epoch_rewards(epoch):
         return
 
     with transaction.atomic():
-        attestation_rewards = send_request_post('/eth/v1/beacon/rewards/attestations/' + str(epoch), '[]')
+        attestation_rewards = beacon.get_rewards_attestations(epoch, '[]')
             
         sync_rewards = {}
         for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
-            sync_rewards_json = send_request_post('/eth/v1/beacon/rewards/sync_committee/' + str(slot), '[]')
+            sync_rewards_json = beacon.get_rewards_sync(slot, '[]')
             block_not_found = "message" in sync_rewards_json and str(sync_rewards_json["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
 
             if not block_not_found:

@@ -1,6 +1,6 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS
+from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, BEACON_API_ENDPOINT_OPTIONAL_GZIP
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -14,7 +14,7 @@ from django.core.cache import cache
 from blockfetcher.beacon_api import BeaconAPI
 
 logger = logging.getLogger(__name__)
-beacon = BeaconAPI(BEACON_API_ENDPOINT)
+beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 
 
 def get_attestation_efficiency(epoch, validator_count):
