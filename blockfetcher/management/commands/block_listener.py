@@ -269,10 +269,10 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                                 create_sync_committee(finalized_check_epoch)
 
-                            loop_epoch = int(slot / SLOTS_PER_EPOCH)
+                        loop_epoch = int(slot / SLOTS_PER_EPOCH)
 
-                            main_row.last_slot = slot
-                            main_row.save()
+                        main_row.last_slot = slot
+                        main_row.save()
 
                 load_block_task.delay(slot, loop_epoch)
                 tasks_count = get_scheduled_tasks_count()
@@ -337,7 +337,7 @@ class Command(BaseCommand):
             if str(event.event) == "chain_reorg":
                 print("reorg")
                 print(event_slot)
-                print(str(event))
+                print(str(event.data))
                 loop_epoch = int((event_slot-1) / SLOTS_PER_EPOCH)
                 last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, event_slot, loop_epoch, last_balance_update_time, True)
             else:
