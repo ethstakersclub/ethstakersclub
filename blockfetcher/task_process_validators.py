@@ -17,38 +17,43 @@ logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT)
 
 
-def get_attestation_efficiency(epoch):
-    logger.info("calculate attestation efficiency...")
+def get_attestation_efficiency(epoch, validator_count):
+    logger.info(f"calculate attestation efficiency for {validator_count} validators...")
     attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(epoch - ATTESTATION_EFFICIENCY_EPOCHS)*SLOTS_PER_EPOCH,
                                                                       slot__lt=(epoch + 1)*SLOTS_PER_EPOCH).values('validator_ids', 'distance'))
 
-    efficiency_counter = {}
+    count_dict = {}
+    sum_dict = {}
+
+    for i in range(validator_count):
+        count_dict[i] = 0
+        sum_dict[i] = 0.0
+
     for committee in attestation_committees:
         for validator_id, distance in zip(committee['validator_ids'], committee['distance']):
-            validator_efficiency = efficiency_counter.get(validator_id)
-            if validator_efficiency is None:
-                validator_efficiency = {"count": 0, "sum": 0, "efficiency": 0}
-                efficiency_counter[validator_id] = validator_efficiency
-
-            validator_efficiency["count"] += 1.0
+            count_dict[validator_id] += 1
 
             if distance == 0:
-                validator_efficiency["sum"] += 1.0
+                sum_dict[validator_id] += 1.0
             elif distance != 255:
-                validator_efficiency["sum"] += 1.0 / (distance + 1.0)
+                sum_dict[validator_id] += 1.0 / (distance + 1.0)
 
+    efficiency = {}
     total_efficiency = 0
-    for perf in efficiency_counter:
-        attestation_efficiency = int(
-            float(efficiency_counter[perf]["sum"]) / float(efficiency_counter[perf]["count"]) * 10000)
-        efficiency_counter[int(perf)]["efficiency"] = attestation_efficiency
-        total_efficiency += attestation_efficiency
+    total_efficiency_counter = 0
+    for validator_id, count in count_dict.items():
+        if count > 0:
+            attestation_efficiency = int(
+                float(sum_dict[validator_id]) / float(count) * 10000)
+            efficiency[int(validator_id)] = attestation_efficiency
+            total_efficiency += attestation_efficiency
+            total_efficiency_counter += 1
 
-    average_attestation_efficiency = total_efficiency / len(efficiency_counter) if len(efficiency_counter) > 0 else 0
+    average_attestation_efficiency = total_efficiency / total_efficiency_counter if total_efficiency_counter > 0 else 0
     logger.info("average attestation efficiency is " + str(average_attestation_efficiency))
     cache.set('average_attestation_efficiency', average_attestation_efficiency, timeout=5000)
 
-    return efficiency_counter
+    return efficiency
 
 
 def assign_validators_to_staking_deposits(validators):
@@ -233,7 +238,7 @@ def process_validators(slot):
     update_validator_withdrawal_address(validators)
     update_validator_activation_epochs(validators)
 
-    efficiency_counter = get_attestation_efficiency(int(slot / SLOTS_PER_EPOCH) - 2)
+    efficiency = get_attestation_efficiency(int(slot / SLOTS_PER_EPOCH) - 2, len(validators["data"]))
 
     total_amount_withdrawn = calculate_total_withdrawn_by_validator()
     total_execution_rewards = calculate_total_execution_reward_by_validator()
@@ -256,7 +261,7 @@ def process_validators(slot):
             "status": str(val["status"]),
             "e_epoch": int(val["validator"]["exit_epoch"]),
             "w_epoch": int(val["validator"]["withdrawable_epoch"]),
-            "efficiency": efficiency_counter[int(val["index"])]["efficiency"] if int(val["index"]) in efficiency_counter else 0,
+            "efficiency": efficiency[int(val["index"])] if int(val["index"]) in efficiency else 0,
             "total_consensus_balance":
                 int(val["balance"]) +
                 int(total_amount_withdrawn[int(val["index"])] if int(val["index"]) in total_amount_withdrawn else 0),
