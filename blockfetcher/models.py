@@ -277,7 +277,6 @@ class EpochReward(models.Model):
 class SyncCommittee(models.Model):
     period = models.IntegerField(db_index=True, unique=True)
     validator_ids = ArrayField(models.IntegerField(), null=True, blank=True)
-    missed = ArrayField(models.IntegerField(), null=True, blank=True)
 
     class Meta:
         indexes = [

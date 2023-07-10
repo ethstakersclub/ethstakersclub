@@ -51,6 +51,7 @@
     </div>
   </div>
   {% endif %}
+  {% include 'frontend/footer.html' %}
 </div>
 
 {% endblock %}
@@ -93,14 +94,15 @@
           },
           { key: 'participated', label: 'Participated',
             renderFunction: (value, item) => {
-              return value == "yes" ? "Participated" : value == "no" ? "Missed" : item.slot > ({{ current_slot }} - 2) ? "Pending" : "No Block Proposed"
+              return value == "yes" ? "Participated" : value == "no" ? "Missed" : value == "pending" ? "Pending" : "No Block Proposed"
             },
             renderClass: (value, item) => {
               return {
-                'status-label rounded-pill px-2': true,
+                'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': value == "yes",
                 'bg-danger': value == "no",
-                'bg-primary': value == "no_block_proposed",
+                'bg-warning': value == "no_block_proposed",
+                'bg-primary': value == "pending",
               };
             },
           },

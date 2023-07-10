@@ -246,7 +246,7 @@
   <div class='row mx-0'>
     <div class='piechart-element'>
       <div class='piechart-label'>
-        <div class='label-heading'>Attestation Efficiency (100 epochs):</div>
+        <div class='label-heading'>Attestation Efficiency ({{ attestation_efficiency_epochs }} epochs):</div>
         <p class='small'>Current Average Efficiency: {{ average_attestation_efficiency|floatformat:2 }}%<br/>
                          Total Attestations: {{ total_attestations|commaSeparatorNumber }}
       </div>
@@ -263,7 +263,7 @@
         <p class='small'>
                          Sync Committee Participations: {{ sync_participation_count }}<br/>
                          Missed Sync Duties: {{ missed_sync_committee_duties }}/{{ sync_duty_count }}<br/><br/>
-                         Current: since {{ active_sync_validators.start_in }} - {% for i in active_sync_validators.validators %}{{ i }}{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating<br/>
+                         Current: since {{ active_sync_validators.start_in }} - {% for i in active_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating<br/>
                          Next: in {{ next_sync_validators.start_in }} - {% for i in next_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating
                         </p>
       </div>
@@ -451,14 +451,14 @@
         <div>
           <a type="button" href="{% url 'account_signup' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Sign up to monitor your validators here</a>
           <br><br><span style="color: #ffffffa1;">or</span><br>
-          <a type="button" href="{% url 'account_login' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Login</a>
+          <a type="button" href="{% url 'account_login' %}" style="background-color: #52628a;" class="btn btn-primary text-white mb-3">Login</a>
         </div>
       {% endif %}
     </div>
   </div>
 
   {% endif %}
-  
+  {% include 'frontend/footer.html' %}
 </div>
 </div>
 {% endblock %}
@@ -721,14 +721,15 @@
           },
           { key: 'participated', label: 'Participated',
             renderFunction: (value, item) => {
-              return value == "yes" ? "Participated" : value == "no" ? "Missed" : item.slot > ({{ current_slot }} - 2) ? "Pending" : "No Block Proposed"
+              return value == "yes" ? "Participated" : value == "no" ? "Missed" : value == "pending" ? "Pending" : "No Block Proposed"
             },
             renderClass: (value, item) => {
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': value == "yes",
                 'bg-danger': value == "no",
-                'bg-primary': value == "no_block_proposed",
+                'bg-warning': value == "no_block_proposed",
+                'bg-primary': value == "pending",
               };
             },
           },
@@ -917,6 +918,8 @@ var lineChart = new Chart(ctx, {
         display: false
       },
       tooltip: {
+        mode: 'index',
+        intersect: false,
         callbacks: {
           label: function(context) {
             let label = context.dataset.label || '';

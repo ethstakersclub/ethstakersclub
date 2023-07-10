@@ -1119,3 +1119,20 @@ h4 {
 .tippy-content {
     white-space: pre-line;
 }
+
+.footer {
+  background: #111a2e;
+  border-top: 1px solid #0c1324;
+}
+
+.footer-text {
+  text-align: center;
+  color: white;
+  padding: 6px;
+  margin:0;
+}
+
+.footer-link {
+  color: rgb(70 150 235) !important;
+  border-bottom: 1px solid rgb(70 150 235) !important;
+}

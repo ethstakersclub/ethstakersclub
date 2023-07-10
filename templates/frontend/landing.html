@@ -69,11 +69,11 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor you
 
     <div class="col-12 col-md-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
-        <div class="element-header">Most Recent Slots</div>
         <div>
           <table-component :data="blocksJsonData" :columns="blocksTableColumns" :rows-per-page-options="[15]"
           :item-count="15" :api-endpoint="'/api/blocks'" :allow-sort="false" :key-prop="'slot_number'"
-          :fetch-strategy="'slot_range'" :fetch-property="'slot_number'" :show-pagination="false" :live-update="true" />
+          :fetch-strategy="'slot_range'" :fetch-property="'slot_number'" :show-pagination="false" :live-update="true"
+          :query-parameters="[{omit_pending: true }]" :title="'Most Recent Slots'" />
         </div>
       </div>
     </div>
@@ -81,6 +81,7 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor you
   </div>
 
   <div class='element-header social'></div>
+  {% include 'frontend/footer.html' %}
 </div>
 
 {% endblock %}

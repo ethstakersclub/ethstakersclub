@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, MissedAttestation, SyncCommittee, MissedSync
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, VALIDATOR_MONITORING_LIMIT
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, VALIDATOR_MONITORING_LIMIT, GENESIS_TIMESTAMP
 import json
 from django.utils import timezone
 import datetime
@@ -18,14 +18,8 @@ from api.util import calculate_activation_epoch
 from api.util import measure_execution_time
 
 
-def calc_time_of_slot(ref_block_timestamp, ref_block_slot, to_slot):
-    seconds_to_slot = SECONDS_PER_SLOT*(ref_block_slot - int(to_slot))
-    if seconds_to_slot >= 0:
-        block_timestamp = ref_block_timestamp - datetime.timedelta(seconds=seconds_to_slot)
-    else:
-        block_timestamp = ref_block_timestamp + datetime.timedelta(seconds=(-1 * seconds_to_slot))
-    
-    return block_timestamp
+def calc_time_of_slot(slot):
+    return timezone.make_aware(datetime.datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * slot)), timezone=timezone.utc)
 
 
 def get_time_diff_to_now(time):
@@ -119,8 +113,8 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
             active_sync_validators["start-slot"] = sync_period_start_slot
             active_sync_validators["end-slot"] = sync_period_end_slot
             
-            active_sync_validators["start"] = calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, sync_period_start_slot)
-            active_sync_validators["end"] = calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, sync_period_end_slot)
+            active_sync_validators["start"] = calc_time_of_slot(sync_period_start_slot)
+            active_sync_validators["end"] = calc_time_of_slot(sync_period_end_slot)
 
             active_sync_validators["start_in"] = get_time_diff_to_now_short(active_sync_validators["start"])
             active_sync_validators["end_in"] = get_time_diff_to_now_short(active_sync_validators["end"])
@@ -128,8 +122,8 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
             next_sync_validators["start-slot"] = sync_period_start_slot
             next_sync_validators["end-slot"] = sync_period_end_slot
             
-            next_sync_validators["start"] = calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, sync_period_start_slot)
-            next_sync_validators["end"] = calc_time_of_slot(latest_block.timestamp, latest_block.slot_number, sync_period_end_slot)
+            next_sync_validators["start"] = calc_time_of_slot(sync_period_start_slot)
+            next_sync_validators["end"] = calc_time_of_slot(sync_period_end_slot)
 
             next_sync_validators["start_in"] = get_time_diff_to_now_short(next_sync_validators["start"])
             next_sync_validators["end_in"] = get_time_diff_to_now_short(next_sync_validators["end"])

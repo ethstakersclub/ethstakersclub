@@ -19,6 +19,10 @@ def get_blocks(request):
     range_value = int(request.GET.get('range', 10))
     direction_value = str(request.GET.get('direction', "descending"))
     from_slot = request.GET.get('from_slot')
+    omit_pending = bool(request.GET.get('omit_pending', False))
+
+    if omit_pending is not True and omit_pending is not False:
+        omit_pending = False
 
     if from_slot == 'head':
         latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
@@ -39,6 +43,9 @@ def get_blocks(request):
         else:
             blocks = Block.objects.filter(slot_number__lte=from_slot).order_by("-slot_number")
         
+        if omit_pending is True:
+            blocks = blocks.exclude(empty=3)
+
         blocks = list(blocks[:range_value].values('proposer', 'block_number', 'slot_number', 'fee_recipient',
                                              'timestamp', 'total_reward', 'epoch', 'empty'))
         
@@ -341,7 +348,9 @@ def get_sync_committee_participation(index_numbers, from_slot, range):
                 break
 
             period_end = (psc["period"] + 1)*SLOTS_PER_EPOCH*256
-            res = list(Block.objects.filter(slot_number__lt=period_end, slot_number__lte=from_slot)
+            period_start = psc["period"]*SLOTS_PER_EPOCH*256
+            
+            res = list(Block.objects.filter(slot_number__lt=period_end, slot_number__lte=from_slot, slot_number__gte=period_start)
                                     .order_by("-slot_number")[:remaining_items]
                                     .values("sync_committee_bits", "slot_number", "epoch", "empty")
                       )
@@ -375,7 +384,7 @@ def get_sync_committee_participation(index_numbers, from_slot, range):
                 )
             else:
                 dashboard_sync_committee_participation.append(
-                    {"participated": "no_block_proposed",
+                    {"participated": "no_block_proposed" if int(scp["empty"]) != 3 else "pending",
                         "period": scp["period"], "slot": scp["slot_number"], "epoch": scp["epoch"], "validator_id": value, "participation": participation,
                         "block_timestamp": calc_time_of_slot(scp["slot_number"]).isoformat()}
                 )
@@ -461,8 +470,8 @@ def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
             except:
                 pass
             try:
-                rewards_penalties[reward["epoch"]]['sync_penalty'] += int(reward["sync_penalty"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["sync_penalty"])
+                rewards_penalties[reward["epoch"]]['sync_penalty'] -= int(reward["sync_penalty"])
+                rewards_penalties[reward["epoch"]]['total_reward'] -= int(reward["sync_penalty"])
             except:
                 pass
 

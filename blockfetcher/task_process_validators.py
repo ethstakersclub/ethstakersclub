@@ -1,6 +1,6 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT
+from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -17,22 +17,21 @@ logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT)
 
 
-def get_attestation_efficiency(current_epoch):
+def get_attestation_efficiency(epoch):
     logger.info("calculate attestation efficiency...")
-    attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(current_epoch - 10)*SLOTS_PER_EPOCH,
-                                                                      slot__lt=(current_epoch + 1)*SLOTS_PER_EPOCH).values('validator_ids', 'distance'))
+    attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(epoch - ATTESTATION_EFFICIENCY_EPOCHS)*SLOTS_PER_EPOCH,
+                                                                      slot__lt=(epoch + 1)*SLOTS_PER_EPOCH).values('validator_ids', 'distance'))
 
     efficiency_counter = {}
     for committee in attestation_committees:
         for i, validator_id in enumerate(committee['validator_ids']):
             if validator_id not in efficiency_counter:
-                efficiency_counter[validator_id] = {"count": 0, "sum": 0, "efficiency": 0}
-            efficiency_counter[validator_id]["count"] += 1.0
-
-            if committee['distance'][i] == 255:
-                efficiency_counter[validator_id]["sum"] += 0
+                efficiency_counter[validator_id] = {"count": 1.0, "sum": 0, "efficiency": 0}
             else:
-                efficiency_counter[validator_id]["sum"] += 1.0 / float(committee['distance'][i] + 1.0)
+                efficiency_counter[validator_id]["count"] += 1.0
+
+            if committee['distance'][i] != 255:
+                efficiency_counter[validator_id]["sum"] += 1.0 / (committee['distance'][i] + 1.0)
 
     total_efficiency = 0
     for perf in efficiency_counter:

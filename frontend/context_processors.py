@@ -1,6 +1,6 @@
 # context_processors.py
 
-from ethstakersclub.settings import CURRENCY_NAME, VALIDATOR_MONITORING_LIMIT, DEBUG
+from ethstakersclub.settings import CURRENCY_NAME, VALIDATOR_MONITORING_LIMIT, DEBUG, ATTESTATION_EFFICIENCY_EPOCHS
 from blockfetcher.cache import *
 from blockfetcher.models import Main
 
@@ -12,6 +12,7 @@ def general_context_processor(request):
     return {
         'DEBUG': DEBUG,
         'currency_name': CURRENCY_NAME,
+        'attestation_efficiency_epochs': ATTESTATION_EFFICIENCY_EPOCHS,
         'validator_monitoring_limit': VALIDATOR_MONITORING_LIMIT,
         'current_slot': current_slot,
         'current_epoch': current_epoch,

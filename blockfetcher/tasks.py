@@ -540,13 +540,13 @@ def load_epoch_rewards(epoch):
         epoch_rewards = {}
         for reward in attestation_rewards["data"]["total_rewards"]:
             epoch_rewards[int(reward["validator_index"])] = EpochReward(
-                validator_id=reward["validator_index"],
+                validator_id=int(reward["validator_index"]),
                 epoch=epoch,
                 attestation_head=reward["head"],
                 attestation_target=reward["target"],
                 attestation_source=reward["source"],
-                sync_reward=sync_rewards_json[reward["validator_index"]]["reward"] if reward["validator_index"] in sync_rewards_json else None,
-                sync_penalty=sync_rewards_json[reward["validator_index"]]["penalty"] if reward["validator_index"] in sync_rewards_json else None,
+                sync_reward=sync_rewards[int(reward["validator_index"])]["reward"] if int(reward["validator_index"]) in sync_rewards else None,
+                sync_penalty=sync_rewards[int(reward["validator_index"])]["penalty"] if int(reward["validator_index"]) in sync_rewards else None,
             )
         
         for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
@@ -560,20 +560,25 @@ def load_epoch_rewards(epoch):
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_proposer_slashings = int(block_reward["data"]["proposer_slashings"])
                 epoch_rewards[int(block_reward["data"]["proposer_index"])].block_attester_slashings = int(block_reward["data"]["attester_slashings"])
 
-        EpochReward.objects.bulk_create(epoch_rewards.values(), batch_size=512, ignore_conflicts=True)
+        EpochReward.objects.bulk_create(epoch_rewards.values(), batch_size=512, update_conflicts=True, 
+                                        update_fields=["attestation_head", "attestation_target", "attestation_source", "sync_reward", 
+                                                               "sync_penalty", "block_attestations", "block_sync_aggregate", "block_proposer_slashings", 
+                                                               "block_attester_slashings"], 
+                                                unique_fields=["validator_id", "epoch"])
 
     logger.info(f"delete epoch {epoch} old consensus rewards")
 
     epoch_reward_objects_to_delete = EpochReward.objects.filter(epoch__lt=epoch-EPOCH_REWARDS_HISTORY_DISTANCE)
 
-    first_pk_to_delete = epoch_reward_objects_to_delete.first().pk
-    last_pk_to_delete = epoch_reward_objects_to_delete.last().pk
-    batch_size = 10000
-    last_deleted = 0
-    for i in range(first_pk_to_delete, last_pk_to_delete - batch_size, batch_size):
-        EpochReward.objects.filter(pk__gte=i, pk__lte=i+batch_size).delete()
-        last_deleted = i
-    EpochReward.objects.filter(pk__gte=last_deleted, pk__lte=last_pk_to_delete).delete()
+    if epoch_reward_objects_to_delete.exists():
+        first_pk_to_delete = epoch_reward_objects_to_delete.first().pk
+        last_pk_to_delete = epoch_reward_objects_to_delete.last().pk
+        batch_size = 50000
+        last_deleted = 0
+        for i in range(first_pk_to_delete, last_pk_to_delete - batch_size, batch_size):
+            EpochReward.objects.filter(pk__gte=i, pk__lte=i+batch_size).delete()
+            last_deleted = i
+        EpochReward.objects.filter(pk__gte=last_deleted, pk__lte=last_pk_to_delete).delete()
 
 
 def get_block_reward(execution_block, block):

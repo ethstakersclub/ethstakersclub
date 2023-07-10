@@ -31,6 +31,9 @@ th {
 th:first-child {
     min-width: 200px;
 }
+.footer {
+    background: #0c1324;
+}
 </style>
 {% endblock %}
 
@@ -58,23 +61,23 @@ th:first-child {
             </tr>
             <tr class="divider">
                 <th><i id="voting-participation-tooltip" class="far fa-question-circle question-tooltip"></i>Voting Participation</th>
-                <td>{{ epoch.participation_percent|floatformat:2 }}%</td>
+                <td>{% if epoch.participation_percent == None %}pending{% else %}{{ epoch.participation_percent|floatformat:2 }}%{% endif %}</td>
             </tr>
             <tr>
                 <th><i id="missed-attestations-tooltip" class="far fa-question-circle question-tooltip"></i>Missed Attestations</th>
-                <td>{{ epoch.missed_attestation_count }}/{{ epoch.total_attestations }}</td>
+                <td>{% if epoch.missed_attestation_count == None %}pending{% else %}{{ epoch.missed_attestation_count }}/{{ epoch.total_attestations }}{% endif %}</td>
             </tr>
             <tr>
                 <th><i id="proposed-blocks-tooltip" class="far fa-question-circle question-tooltip"></i>Proposed Blocks</th>
-                <td>{{ epoch.epoch_total_proposed_blocks }}</td>
+                <td>{% if epoch.epoch_total_proposed_blocks == None %}pending{% else %}{{ epoch.epoch_total_proposed_blocks }}{% endif %}</td>
             </tr>
             <tr>
                 <th><i id="average-block-reward-tooltip" class="far fa-question-circle question-tooltip"></i>Average Block Reward (MEV)</th>
-                <td>{{ epoch.average_block_reward|weiToEthRound }} {{ currency_name }}</td>
+                <td>{% if epoch.average_block_reward == None %}pending{% else %}{{ epoch.average_block_reward|weiToEthRound }} {{ currency_name }}{% endif %}</td>
             </tr>
             <tr class="divider">
                 <th><i id="active-validators-tooltip" class="far fa-question-circle question-tooltip"></i>Active Validators</th>
-                <td>{{ epoch.active_validators }}</td>
+                <td>{% if epoch.active_validators == None %}pending{% else %}{{ epoch.active_validators }}{% endif %}</td>
             </tr>
             <tr>
                 <th><i id="validator-status-tooltip" class="far fa-question-circle question-tooltip"></i>Validator Status</th>
@@ -86,6 +89,7 @@ th:first-child {
             </table>
         </div>
     </div>
+    {% include 'frontend/footer.html' %}
 </div>
 
 {% endblock %}
