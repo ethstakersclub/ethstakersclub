@@ -314,8 +314,6 @@ class Command(BaseCommand):
             'justified_checkpoint_epoch': 0,
             })
         
-        print(main_row)
-
         head_slot = 0
         last_slot_processed = -10000
         while last_slot_processed < head_slot - 128:
@@ -333,12 +331,12 @@ class Command(BaseCommand):
         client = sseclient.SSEClient(response)
         last_balance_update_time = time.time()
         for event in client.events():
-            event_slot=int(json.loads(event.data)["slot"]) - 5
             if str(event.event) == "chain_reorg":
-                print("reorg")
-                print(event_slot)
-                print(str(event.data))
-                loop_epoch = int((event_slot-1) / SLOTS_PER_EPOCH)
-                last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, event_slot, loop_epoch, last_balance_update_time, True)
+                event_data = json.loads(event.data)
+                reorg_until_slot=int(event_data["slot"]) - int(event_data["depth"]) - 2
+                print_status('info', f"reorg at slot {event_data['slot']} depth {event_data['depth']}, rewind to slot {reorg_until_slot}")
+                print_status('info', f"reorg event: {str(event.data)}")
+                loop_epoch = int((reorg_until_slot-1) / SLOTS_PER_EPOCH)
+                last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, reorg_until_slot, loop_epoch, last_balance_update_time, True)
             else:
                 last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row, last_slot_processed+1, loop_epoch, last_balance_update_time)
