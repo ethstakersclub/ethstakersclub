@@ -225,6 +225,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                     with transaction.atomic():
                         check_epoch = int(slot / SLOTS_PER_EPOCH)
                         if slot >= main_row.last_epoch_slot_processed:
+                            print_status('info', f'New epoch {check_epoch}')
                             load_epoch(check_epoch, slot)
                         else:
                             if not Epoch.objects.filter(epoch=check_epoch).exists():
@@ -232,6 +233,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                         if not reorg:
                             if not initial_run:
+                                print_status('info', 'Load current state')
                                 load_current_state(main_row)
 
                                 sec_since_last_balance_update = (time.time() - last_balance_update_time)
