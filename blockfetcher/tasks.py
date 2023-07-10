@@ -1,10 +1,9 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import BEACON_API_ENDPOINT
 import json
 from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
     EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP, \
-    EPOCH_REWARDS_HISTORY_DISTANCE
+    EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP
 import requests
 from blockfetcher.models import Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
@@ -26,7 +25,7 @@ from django.db import transaction
 from blockfetcher.task_process_validators import process_validators
 
 
-beacon = BeaconAPI(BEACON_API_ENDPOINT)
+beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 logger = logging.getLogger(__name__)
 
 
@@ -659,9 +658,8 @@ def load_epoch(epoch, slot):
         ]
         Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer"], unique_fields=["slot_number"])
 
-        logger.info("load attestation committee at epoch " + str(epoch) + " slot " + str(slot))
-        url = BEACON_API_ENDPOINT + '/eth/v1/beacon/states/' + str(slot) + '/committees?epoch=' + str(epoch)
-        epoch_attestations = requests.get(url).json()
+        logger.info(f"load attestation committee at epoch {epoch} slot {slot}")
+        epoch_attestations = beacon.get_attestation_committees(slot, epoch)
 
         logger.info(f"Bulk create AttestationCommittee for epoch {epoch}")
 

@@ -23,23 +23,6 @@ class BeaconAPI:
         endpoint = f"/eth/v1/validator/duties/proposer/{epoch}"
         return self._make_request(endpoint)
     
-    '''
-    def get_state(self, state_id):
-        endpoint = f"/eth/v1/beacon/states/{state_id}"
+    def get_attestation_committees(self, state_id, epoch):
+        endpoint = f"/eth/v1/beacon/states/{state_id}/committees?epoch={epoch}"
         return self._make_request(endpoint)
-
-    def get_blocks(self, block_id=None):
-        if block_id:
-            endpoint = f"/eth/v1/beacon/blocks/{block_id}"
-        else:
-            endpoint = "/eth/v1/beacon/blocks"
-        return self._make_request(endpoint)
-
-    def get_block_proposals(self, block_id):
-        endpoint = f"/eth/v1/beacon/blocks/{block_id}/proposals"
-        return self._make_request(endpoint)
-
-    def get_epoch(self, epoch_id):
-        endpoint = f"/eth/v1/beacon/epochs/{epoch_id}"
-        return self._make_request(endpoint)
-    '''
