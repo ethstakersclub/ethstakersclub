@@ -24,14 +24,18 @@ def get_attestation_efficiency(epoch):
 
     efficiency_counter = {}
     for committee in attestation_committees:
-        for i, validator_id in enumerate(committee['validator_ids']):
-            if validator_id not in efficiency_counter:
-                efficiency_counter[validator_id] = {"count": 1.0, "sum": 0, "efficiency": 0}
-            else:
-                efficiency_counter[validator_id]["count"] += 1.0
+        for validator_id, distance in zip(committee['validator_ids'], committee['distance']):
+            validator_efficiency = efficiency_counter.get(validator_id)
+            if validator_efficiency is None:
+                validator_efficiency = {"count": 0, "sum": 0, "efficiency": 0}
+                efficiency_counter[validator_id] = validator_efficiency
 
-            if committee['distance'][i] != 255:
-                efficiency_counter[validator_id]["sum"] += 1.0 / (committee['distance'][i] + 1.0)
+            validator_efficiency["count"] += 1.0
+
+            if distance == 0:
+                validator_efficiency["sum"] += 1.0
+            elif distance != 255:
+                validator_efficiency["sum"] += 1.0 / (distance + 1.0)
 
     total_efficiency = 0
     for perf in efficiency_counter:

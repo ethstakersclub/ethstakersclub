@@ -326,7 +326,7 @@ class Command(BaseCommand):
             http = urllib3.PoolManager()
             return http.request('GET', url, preload_content=False, headers=headers)
         
-        url = 'http://127.0.0.1:5052/eth/v1/events?topics=chain_reorg,head'
+        url = BEACON_API_ENDPOINT + '/eth/v1/events?topics=chain_reorg,head'
         headers = {'Accept': 'text/event-stream'}
         response = with_urllib3(url, headers)
         client = sseclient.SSEClient(response)

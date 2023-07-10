@@ -446,7 +446,7 @@
       <img src="{% static 'img/pug1.png' %}" style="max-width: 400px; margin: 0 auto;width:50%;">
       <br>
       {% if user.is_authenticated %}
-        <button type="button" data-toggle="modal" data-target="#validatorModal" style="background-color: #52628a;" class="btn btn-primary text-white">Add validators to monitor them here</button>
+        <button type="button" data-toggle="modal" data-target="#validatorModal" style="background-color: #52628a;" class="btn btn-primary text-white mb-5">Add validators to monitor them here</button>
       {% else %}
         <div>
           <a type="button" href="{% url 'account_signup' %}" style="background-color: #52628a;" class="btn btn-primary text-white">Sign up to monitor your validators here</a>
