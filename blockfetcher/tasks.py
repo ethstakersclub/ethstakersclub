@@ -12,10 +12,9 @@ from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
 import binascii
-from django.db.models import Sum
+from django.db.models import Sum, Q, Count, Func, F, Case, When, Value, DecimalField
 from django.utils import timezone
 import time
-from django.db.models import Q, Count, Func, F
 import logging
 from django.core.cache import cache
 from collections import Counter
@@ -23,7 +22,6 @@ import timeout_decorator
 from blockfetcher.beacon_api import BeaconAPI
 from django.db import transaction
 from blockfetcher.task_process_validators import process_validators
-
 
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 logger = logging.getLogger(__name__)
@@ -416,12 +414,14 @@ def load_block(slot, epoch):
 
             if len(execution_block["transactions"]) != 0:
                 block_reward = get_block_reward(execution_block, block)
-                new_block.total_reward = block_reward["total_reward"]
-                new_block.fee_reward = block_reward["total_reward"]
+
+                fee_reward = decimal.Decimal(block_reward["total_reward"])
+                Block.objects.filter(slot_number=int(slot), total_reward=0).update(total_reward=fee_reward)
+
+                new_block.fee_reward = fee_reward
                 new_block.total_tx_fee = block_reward["total_tx_fee"]
                 new_block.burnt_fee = block_reward["burnt_fee"]
             else:
-                new_block.total_reward = 0
                 new_block.fee_reward = 0
                 new_block.total_tx_fee = 0
                 new_block.burnt_fee = 0
@@ -492,7 +492,9 @@ def load_block(slot, epoch):
                 attestation_committee_update.append(attestation_committee)
             AttestationCommittee.objects.bulk_update(attestation_committee_update, fields=["distance", "missed_attestation"])
 
-        new_block.save()
+        fields_to_exclude = {'total_reward','mev_reward', 'mev_boost_relay', 'mev_reward_recipient', 'slot_number', 'epoch'}
+        fields_to_update = [f.name for f in Block._meta.get_fields() if f.name not in fields_to_exclude and not f.auto_created]
+        new_block.save(update_fields=fields_to_update)
 
 
 def load_epoch_rewards(epoch):
