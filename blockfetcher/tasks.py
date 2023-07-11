@@ -149,7 +149,7 @@ def fetch_mev_rewards(lowest_slot, cursor_slot):
 
 
 @transaction.atomic
-def make_balance_snapshot(slot, timestamp):
+def make_balance_snapshot(slot, timestamp, force_run=False):
     timestamp = timezone.make_aware(datetime.fromtimestamp(int(timestamp)), timezone=timezone.utc).date()
     timestamp_target = timestamp - timezone.timedelta(days=1)
 
@@ -158,7 +158,7 @@ def make_balance_snapshot(slot, timestamp):
     lowest_slot_at_date_target = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp_target)\
         .order_by('slot_number').first().slot_number
     
-    if ValidatorBalance.objects.filter(date=timestamp_target).exists():
+    if ValidatorBalance.objects.filter(date=timestamp_target).exists() and force_run == False:
         logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(lowest_slot_at_date))
 
         if ValidatorBalance.objects.filter(slot=lowest_slot_at_date).exists():
