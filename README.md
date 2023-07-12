@@ -2,6 +2,10 @@
 
 The Ethstakers.club Explorer is a tool designed to monitor validators, slots, epochs and much more on the Ethereum Beacon Chain. Currently, there is only a single other beacon explorer available, which is a point of centralization and prone to problems if it experiences any issues or downtime.
 
+<div align="center">
+  <img src="screenshot/screenshot.jpg" alt="Screenshot" width="92%">
+</div>
+
 Unlike the competition, our explorer leverages completely freely available software, such as PostgreSQL, instead of proprietary solutions like Google Bigtable (beaconcha.in) or Chart.js instead of Highsoft charts. The project was launched with the vision that everyone should be at least able to run their own beacon chain explorer, regardless of their technical expertise or financial resources without being dependent on third parties. We believe in empowering the Ethereum community by providing an open-source and accessible solution for monitoring validators. This goal also ensures greater resilience and reliability for monitoring validators on the Ethereum Beacon Chain even in the case of unexpected events.
 
 This project also provides benefits to researchers and individuals in need of unlimited API access. By utilizing freely available software instead of proprietary solutions, the project enables these users to easily launch a local instance. Moreover, all API functions can be effortlessly extended to accommodate any desired functionality.
