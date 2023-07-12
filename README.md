@@ -21,8 +21,8 @@ The Ethstakers.club Explorer offers a range of features that make it a valuable 
 ### Real-time Validator Monitoring
 The explorer offers real-time (auto update) attestation and sync monitoring.
 
-### Shows if any validators proposes a block within the next epoch
-The dashboard also includes a feature that indicates whether any validators are expected to propose a block within the next epoch. This feature helps users stay informed about upcoming validator activities and enables them to make necessary preparations for pending duties, such as refraining from updating their clients during that time.
+### Don't miss your next Proposal
+Ensure that your validators are not scheduled for block proposals within a specific time span. The dashboard includes a feature that indicates whether any validators are expected to propose a block within the next epoch. This feature helps users stay informed about upcoming validator activities and enables them to make necessary preparations for pending duties, such as refraining from updating their clients during that time.
 
 ### Comprehensive Validator Information
 It provides comprehensive information about the validators being monitored. One of its key features is the ability to display all watched validators' information in a single table, enabling users to access and analyze the data more efficiently.
@@ -36,6 +36,12 @@ The entire project is open-source, allowing the community to contribute, review,
 ### No Vendor Lock-in
 By avoiding proprietary solutions, users are not locked into any specific vendor or service provider. They have the freedom to deploy and manage the explorer according to their own preferences.
 
+### No Tracking Tools
+Ethstakers.club does not employ any third-party tracking tools such as Google Analytics.
+
+### Aggregated Statistics
+Gain a comprehensive overview of all your blocks, synch committee commitments, and access information regarding block proposals.
+
 ### Cost-Effective Solution
 By leveraging freely available software like PostgreSQL, we eliminate the need for expensive proprietary solutions, making the explorer accessible to a wider range of users. The current deployment only costs ~89€ per month (51€ for beacon and execution client, 38€ for the actual explorer)
 
@@ -43,4 +49,9 @@ By leveraging freely available software like PostgreSQL, we eliminate the need f
 For detailed instructions on how to set up and use the Eth Beacon Chain Explorer, please refer to the documentation (coming soon).
 
 ## Contributing
-We welcome contributions from the community to help improve the Ethstakers.club Explorer. If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request.
+We welcome contributions from the community to help improve the Ethstakers.club Explorer. If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Additionally, if you find it helpful, you have the option to star this repository. Doing so would assist us in validating that we're heading in the right direction.
+
+
+
+
+
