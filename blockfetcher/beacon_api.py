@@ -8,7 +8,7 @@ class BeaconAPI:
 
     def _make_request(self, endpoint):
         url = f"{self.endpoint}{endpoint}"
-        response = self.session.get(url, timeout=30)
+        response = self.session.get(url, timeout=50)
         return response.json()
         
     def _make_post_request(self, endpoint, data):

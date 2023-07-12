@@ -3,7 +3,7 @@ from datetime import datetime
 import json
 from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
     EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP, \
-    EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP
+    EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
 import requests
 from blockfetcher.models import Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
@@ -179,7 +179,7 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
     validator_missed_sync = MissedSync.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_sync_dict = {v['validator_id']: v['count'] for v in validator_missed_sync}
 
-    execution_totals = Block.objects.filter(slot_number__lte=lowest_slot_at_date, empty=0).values(
+    execution_totals = Block.objects.filter(slot_number__lte=lowest_slot_at_date, empty=0, slot_number__gte=MERGE_SLOT).values(
         'proposer').annotate(execution_total=Sum('total_reward'))
 
     total_execution_rewards = {block['proposer']: block['execution_total'] for block in

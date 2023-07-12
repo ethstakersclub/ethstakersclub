@@ -1,6 +1,6 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, BEACON_API_ENDPOINT_OPTIONAL_GZIP
+from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -125,7 +125,7 @@ def calculate_total_withdrawn_by_validator():
 def calculate_total_execution_reward_by_validator():
     logger.info("calculate total execution reward for each validator")
 
-    execution_totals = Block.objects.filter(empty=0).values('proposer').annotate(execution_total=Sum('total_reward'))
+    execution_totals = Block.objects.filter(empty=0, slot_number__gte=MERGE_SLOT).values('proposer').annotate(execution_total=Sum('total_reward'))
 
     total_execution_rewards = {block['proposer']: block['execution_total'] for block in
                                execution_totals}
