@@ -291,12 +291,12 @@ td.table-desc {
   cursor: pointer;
   letter-spacing: 0.05rem;
   transition: background .1s ease-out;
+  border-bottom: none;
 }
 
 .sub-navigation-elm {
   padding-left: 50px;
   box-sizing: border-box;
-  /*background: rgba(100, 100, 130, 0.1);*/
   color: #eee;
   display: flex;
   align-items: center;
@@ -306,10 +306,12 @@ td.table-desc {
   letter-spacing: 0.05rem;
   font-size: .9rem;
   transition: background .1s ease-out;
+  border-bottom: none;
 }
 
 .sub-navigation-elm:hover {
   background: rgba(100, 100, 130, 0.3);
+  text-decoration: none;
 }
 
 .navigation-elm-active {
@@ -319,16 +321,19 @@ td.table-desc {
 .navigation-elm:hover {
   background: rgba(100, 100, 130, 0.2);
   transition: all .1s ease-out;
+  text-decoration: none;
 }
 
 .navigation-elm:hover .nav-text {
   transform: scale(1.1);
   transition: transform .1s ease-out;
+  text-decoration: none;
 }
 
 .nav-text {
   transition: transform .1s ease-out;
   border-bottom: none;
+  text-decoration: none;
 }
 
 .piechart-label {

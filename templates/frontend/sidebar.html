@@ -1,18 +1,18 @@
 <div class='sidebar'>
-    <div class='navigation-elm {% if current_page == "dashboard" %}navigation-elm-active{% endif %}'><a href="{% url 'dashboard_empty' %}" class='nav-text'><i class="fa fa-fw fa-area-chart"></i><span class='text-short'>
-        <a href="{% url 'dashboard_empty' %}" class='nav-text'>Dashboard</a></span></a>
-    </div>
-    <div class='sub-navigation-elm {% if current_page == "attestation_live_monitoring" %}navigation-elm-active{% endif %}'><i class="fas fa-fw fa-file-signature"></i><a href="{% url 'attestation_live_monitoring_empty' %}" class='nav-text'>Attestation Live Monitoring</a></div>
-    <div class='sub-navigation-elm {% if current_page == "sync_live_monitoring" %}navigation-elm-active{% endif %}'><i class="fas fa-fw fa-file-signature"></i><a href="{% url 'sync_live_monitoring_empty' %}" class='nav-text'>Sync Duty Live Monitoring</a></div>
-    
-    <div class='navigation-elm {% if current_page == "slots" %}navigation-elm-active{% endif %}'><a href="{% url 'show_slots' %}" class='nav-text'><i class="fas fa-fw fa-layer-group"></i><span class='text-short'>Slots</span> </a>
-    </div>
-    <div class='navigation-elm {% if current_page == "epochs" %}navigation-elm-active{% endif %}'><a href="{% url 'show_epochs' %}" class='nav-text'><i class="fas fa-fw fa-shield-alt"></i><span class='text-short'>Epochs</a></span>
-    </div>
-    <div class='navigation-elm {% if current_page == "validators" %}navigation-elm-active{% endif %}'><a href="{% url 'show_validators' %}" class='nav-text'><i class="fas fa-fw fa-hdd"></i><span class='text-short'>Validators</a></span>
-    </div>
-    <div class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><a href="{% url 'settings' %}" class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</a></span>
-    </div>
+    <a href="{% url 'dashboard_empty' %}" class='navigation-elm {% if current_page == "dashboard" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fa fa-fw fa-area-chart"></i><span class='text-short'>Dashboard</span></span>
+    </a>
+    <a href="{% url 'attestation_live_monitoring_empty' %}" class='sub-navigation-elm {% if current_page == "attestation_live_monitoring" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-file-signature"></i>Attestation Live Monitoring</span>
+    </a>
+    <a href="{% url 'sync_live_monitoring_empty' %}" class='sub-navigation-elm {% if current_page == "sync_live_monitoring" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-file-signature"></i>Sync Duty Live Monitoring</span>
+    </a>
+    <a href="{% url 'show_slots' %}" class='navigation-elm {% if current_page == "slots" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-layer-group"></i><span class='text-short'>Slots</span></span>
+    </a>
+    <a href="{% url 'show_epochs' %}" class='navigation-elm {% if current_page == "epochs" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-shield-alt"></i><span class='text-short'>Epochs</span></span>
+    </a>
+    <a href="{% url 'show_validators' %}" class='navigation-elm {% if current_page == "validators" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-hdd"></i><span class='text-short'>Validators</span></span>
+    </a>
+    <a href="{% url 'settings' %}" class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</span></span>
+    </a>
     {% if not user.is_authenticated %}
     <div style="text-align: center;margin: 20px;">
         <a href="{% url 'account_signup' %}" style="background: #52628a;padding: 10px;width: 100%;display: inline-block;border-radius: 50px;cursor: pointer;border-bottom:none;">
