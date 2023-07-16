@@ -1,0 +1,13 @@
+Django==4.2.1
+django_allauth==0.54.0
+Requests==2.31.0
+sseclient_py==1.7.2
+timeout_decorator==0.5.0
+urllib3==2.0.3
+web3==6.4.0
+django-simple-captcha==0.5.18
+psycopg2
+celery[redis]
+django-celery-beat
+django_redis
+Pillow==9.0.0
