@@ -134,3 +134,6 @@ MEV_BOOST_RELAYS = {
     "Agnostic Relay": "https://agnostic-relay.net",
     "ultra sound relay": "https://relay.ultrasound.money"
 }
+
+RECAPTCHA_PRIVATE_KEY = "replace_with_private_key" 
+RECAPTCHA_PUBLIC_KEY = "replace_with_public_key"
