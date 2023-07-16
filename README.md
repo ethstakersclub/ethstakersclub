@@ -49,7 +49,7 @@ By leveraging freely available software like PostgreSQL, we eliminate the need f
 For detailed instructions on how to set up and use the Eth Beacon Chain Explorer, please refer to the [documentation](docs/install.md).
 
 ## Contributing
-We welcome contributions from the community to help improve the Ethstakers.club Explorer. If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Additionally, if you find it helpful, you have the option to star this repository. Doing so would assist us in validating that we're heading in the right direction.
+We welcome contributions from the community to help improve the Ethstakers.club Explorer. If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request. Additionally, if you find it helpful, you have the option to star this repository. Doing so would assist us in validating that we're heading in the right direction. Please refer to the [roadmap](docs/roadmap.md) for any missing features.
 
 
 
