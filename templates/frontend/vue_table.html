@@ -8,7 +8,7 @@
       <thead>
         <tr>
           <th v-for="column in columns" :key="column.key" @click="sortTable(column.key)">
-            {{ column.label }} <i v-if="allowSort" class="fa-solid fa-sort cursor"></i>
+            {{ column.label }} <i v-if="allowSort || allowSortOf.includes(column.key)" class="fa-solid fa-sort cursor"></i>
           </th>
         </tr>
       </thead>
@@ -90,6 +90,10 @@
       allowSort: {
         type: Boolean,
         default: true,
+      },
+      allowSortOf: {
+        type: Array,
+        default: () => [],
       },
       keyProp: {
         type: String,
@@ -283,12 +287,17 @@
             return String(item[this.keyProp])+ "-" +String(item[this.keyProp2])
         },
       sortTable(key) {
-        if(this.allowSort){
+        if(this.allowSort || this.allowSortOf.includes(key)){
             if (this.sortKey === key) {
-            this.sortOrder *= -1;
+              this.sortOrder *= -1;
             } else {
-            this.sortKey = key;
-            this.sortOrder = 1;
+              this.sortKey = key;
+              this.sortOrder = 1;
+            }
+
+            if(this.apiEndpoint !== ""){
+              this.combinedData = [];
+              this.goToPage(1);
             }
         }
       },
@@ -381,6 +390,7 @@
             additionalParameters = {
                 to_slot: minSlotNumber != 'head' ? minSlotNumber - 1 : minSlotNumber,
                 from_slot: minSlotNumber != 'head' ? minSlotNumber - 1 - this.slotRange : 0,
+                range: this.itemsPerPage,
             };
           }
           else if(this.fetchStrategy == 'slot_range'){
@@ -401,12 +411,15 @@
           }
           else if(this.fetchStrategy == 'cursor'){
             directionValue = 'descending';
+            if(this.sortOrder == -1)
+              directionValue = 'ascending';
             cursorValue = (this.itemsPerPage * (pageNumber - 1));
         
             additionalParameters = {
                 range: this.itemsPerPage,
                 cursor: cursorValue,
                 direction: directionValue,
+                order_by: this.sortKey,
             };
           }
                     

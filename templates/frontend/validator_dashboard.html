@@ -294,9 +294,13 @@
         <div class="element-header">Attestations</div>
         <div>
           <table-component :data="attestationsJsonData" :columns="attestationsTableColumns"
-          :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :allow-sort="false" :key-prop="'slot'"
-          :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'"
-          :slot-range="{% if validator_count == 1 %}320{% elif validator_count < 3 %}160{% elif validator_count < 6 %}80{% elif validator_count < 11 %}40{% else %}32{% endif %}" />
+          {% if validator_count <= 50 %}
+          :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :key-prop2="'validator_id'"
+          :slot-range="{% if validator_count == 1 %}320{% elif validator_count < 3 %}160{% elif validator_count < 6 %}80{% elif validator_count < 11 %}40{% else %}32{% endif %}"
+          {% else %}
+          :item-count="{{ slots_since_first_online }}" :api-endpoint="'/api/attestations_for_slots'" :slot-range="5"
+          {% endif %}
+          :allow-sort="false" :key-prop="'slot'" />
         </div>
       </div>
     </div>
@@ -304,7 +308,9 @@
       <div class="stats-element">
         <div class="element-header">Block Proposals<span id="nextProposalTimer" class="ml-2"></span></div>
         <div>
-          <table-component :data="blocksJsonData" :columns="blocksTableColumns" :allow-sort="true" :key-prop="'slot_number'" />
+          <table-component :data="blocksJsonData" :columns="blocksTableColumns" :key-prop="'slot_number'"
+          :item-count="{{ block_count }}" :api-endpoint="'/api/blocks_by_proposer'" :allow-sort="false"
+          :fetch-strategy="'cursor'" :allow-sort-of="['slot_number', 'block_number', 'total_reward', 'timestamp']" />
         </div>
       </div>
     </div>
@@ -317,7 +323,7 @@
         <div>
           <table-component :data="withdrawalsJsonData" :columns="withdrawalsTableColumns" :key-prop="'block__slot_number'"
           :item-count="{{ withdrawals_count }}" :api-endpoint="'/api/withdrawals'" :allow-sort="false" :key-prop2="'validator'"
-          :query-parameters="[{validators: '{{ validator_array }}' }]" :fetch-strategy="'cursor'" />
+          :fetch-strategy="'cursor'" />
         </div>
       </div>
     </div>
@@ -327,7 +333,7 @@
         <div>
           <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
           :key-prop="'slot'" :allow-sort="false" :fetch-strategy="'slot_range'" :api-endpoint="'/api/sync_committee_participation'"
-          :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" />
+          :item-count="{{ sync_duty_count }}" />
         </div>
       </div>
     </div>
@@ -432,7 +438,7 @@
         <div class="element-header">Reward History</div>
         <div>
           <table-component :data="rewardsPenaltiesJsonData" :columns="rewardsPenaltiesTableColumns" :allow-sort="false" :key-prop="'epoch'"
-          :item-count="100" :query-parameters="[{validators: '{{ validator_array }}' }]" :api-endpoint="'/api/rewards_and_penalties'"
+          :item-count="{{ epoch_rewards_history_distance }}" :api-endpoint="'/api/rewards_and_penalties'"
           :fetch-strategy="'slot_range'" :fetch-property="'epoch'" />
         </div>
       </div>
@@ -501,55 +507,137 @@
       return {
         {% if validator_count > 0 %}
         attestationsJsonData: [],
-        attestationsTableColumns: [
-          { key: 'epoch', label: 'Epoch',
-            renderFunction: (value, item) => {
-              return formatNumber(value);
+        {% if validator_count <= 50 %}
+          attestationsTableColumns: [
+            { key: 'epoch', label: 'Epoch',
+              renderFunction: (value, item) => {
+                return formatNumber(value);
+              },
+              link: (value, item) => {
+                return '/epoch/' + value;
+              },
             },
-            link: (value, item) => {
-              return '/epoch/' + value;
+            { key: 'slot', label: 'Slot',
+              renderFunction: (value, item) => {
+                return formatNumber(value);
+              },
+              link: (value, item) => {
+                return '/slot/' + item.slot;
+              },
             },
-          },
-          { key: 'slot', label: 'Slot',
-            renderFunction: (value, item) => {
-              return formatNumber(value);
+            { key: 'block_timestamp', label: 'Time',
+              renderFunction: (value, item) => {
+                return calculateTimeDifference(value)
+              },
             },
-            link: (value, item) => {
-              return '/slot/' + item.slot;
+            {% if dashboard %}
+            { key: 'validator_id', label: 'Validator ID',
+              link: (value, item) => {
+                return '/validator/' + value;
+              },
             },
-          },
-          { key: 'block_timestamp', label: 'Time',
-            renderFunction: (value, item) => {
-              return calculateTimeDifference(value)
+            {% endif %}
+            { key: 'distance', label: 'Distance',
+              renderFunction: (value, item) => {
+                return value != 255 ? value : '-'
+              },
             },
-          },
-          {% if dashboard %}
-          { key: 'validator_id', label: 'Validator ID',
-            link: (value, item) => {
-              return '/validator/' + value;
+            { key: 'status', label: 'Status',
+              renderFunction: (value, item) => {
+                return item.distance == 255 ? calculateTimeDifferenceSeconds(item.block_timestamp) > 200 ? 'Missed' : 'Scheduled' : 'Attested'
+              },
+              renderClass: (value, item) => {
+                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                return {
+                  'status-label rounded-pill px-2 text-nowrap': true,
+                  'bg-danger': item.distance === 255 && timeDifference > 200,
+                  'bg-primary': item.distance === 255 && timeDifference <= 200,
+                  'bg-success': item.distance !== 255,
+                };
+              },
             },
-          },
-          {% endif %}
-          { key: 'distance', label: 'Distance',
-            renderFunction: (value, item) => {
-              return value != 255 ? value : '-'
+          ],
+        {% else %}
+          attestationsTableColumns: [
+            { key: 'epoch', label: 'Epoch',
+              renderFunction: (value, item) => {
+                return formatNumber(value);
+              },
+              link: (value, item) => {
+                return '/epoch/' + value;
+              },
             },
-          },
-          { key: 'status', label: 'Status',
-            renderFunction: (value, item) => {
-              return item.distance == 255 ? calculateTimeDifferenceSeconds(item.block_timestamp) > 200 ? 'Missed' : 'Scheduled' : 'Attested'
+            { key: 'slot', label: 'Slot',
+              renderFunction: (value, item) => {
+                return formatNumber(value);
+              },
+              link: (value, item) => {
+                return '/slot/' + item.slot;
+              },
             },
-            renderClass: (value, item) => {
-              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
-              return {
-                'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-danger': item.distance === 255 && timeDifference > 200,
-                'bg-primary': item.distance === 255 && timeDifference <= 200,
-                'bg-success': item.distance !== 255,
-              };
+            { key: 'block_timestamp', label: 'Time',
+              renderFunction: (value, item) => {
+                return calculateTimeDifference(value)
+              },
             },
-          },
-        ],
+            { key: 'distance', label: 'Avg. Distance',
+              renderFunction: (value, item) => {
+                let sum = 0;
+                if(calculateTimeDifferenceSeconds(item.block_timestamp) > 100){
+                  sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
+                }
+                else{
+                  console.log(value.filter(val => val !== 255))
+                  sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
+                }
+                const countMissed = value.filter(val => val === 255).length;
+                
+                let averageDistance = "-";
+                if(countMissed !== value.length){
+                  averageDistance = sum / value.length;
+                  
+                  if (averageDistance % 1 !== 0) {
+                    averageDistance = averageDistance.toFixed(2);
+                  }
+                }
+                
+                if(value.length > 0)
+                  return averageDistance
+                else
+                  return "no attestation"
+              },
+              tooltipFunction: (value, item) => {
+                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+
+                let missed_attestation_string = "missed";
+                if(timeDifference <= 200)
+                  missed_attestation_string = "pending"
+
+                return value.map(value => value === 255 ? missed_attestation_string : value).join(", ")
+              },
+            },
+            { key: 'distance', label: 'Attestet',
+              renderFunction: (value, item) => {
+                console.log(item)
+                const missed_count = value.filter(val => val === 255).length;
+                return (value.length - missed_count) + "/" + value.length
+              },
+              renderClass: (value, item) => {
+                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                const countMissed = value.filter(val => val === 255).length;
+
+                percentAttestet = (value.length - countMissed) / value.length * 100
+                return {
+                  'status-label rounded-pill px-2 text-nowrap': true,
+                  'bg-danger': percentAttestet < 80 && timeDifference > 60,
+                  'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && timeDifference > 60,
+                  'bg-primary': timeDifference <= 60 && percentAttestet < 95,
+                  'bg-success': percentAttestet >= 95,
+                };
+              },
+            },
+          ],
+        {% endif %}
         blocksJsonData: [],
         blocksTableColumns: [
           { key: 'slot_number', label: 'Slot',
@@ -687,15 +775,15 @@
           },
           { key: 'attestations', label: 'Attestet',
             renderFunction: (value, item) => {
-              percent = value / {{ validator_count }} * 100;
+              percent = (value - item.missed_attestations) / value * 100;
               return ("Attestet (" + parseInt(percent) + "%)")
             },
             renderClass: (value, item) => {
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': (value / {{ validator_count }} * 100) >= 95,
-                'bg-warning': (value / {{ validator_count }} * 100) >= 60 && (value / {{ validator_count }} * 100) < 95,
-                'bg-danger': (value / {{ validator_count }} * 100) < 60,
+                'bg-success': ((value - item.missed_attestations) / value * 100) >= 95,
+                'bg-warning': ((value - item.missed_attestations) / value * 100) >= 60 && ((value - item.missed_attestations) / value * 100) < 95,
+                'bg-danger': ((value - item.missed_attestations) / value * 100) < 60,
               };
             },
           },
@@ -810,15 +898,16 @@
       };
     },
     mounted() {
+      this.validatorAddJsonData = JSON.parse('{{ validator_overview|safe }}');
       {% if validator_count > 0 %}
       this.attestationsJsonData = JSON.parse('[]');
-      this.blocksJsonData = JSON.parse('{{ blocks|safe }}');
-      this.withdrawalsJsonData = JSON.parse('{{ withdrawals|safe }}');
+      this.blocksJsonData = JSON.parse('[]');
+      this.withdrawalsJsonData = JSON.parse('[]');
       this.rewardsPenaltiesJsonData = JSON.parse('[]');
       this.dashboardSyncCommitteeParticipationsJsonData = JSON.parse('[]');
-      this.validatorOverviewJsonData = JSON.parse('{{ validator_overview|safe }}');
+      this.validatorOverviewJsonData = [...this.validatorAddJsonData];
       {% endif %}
-      this.validatorAddJsonData = JSON.parse('{{ validator_overview|safe }}');
+
       for(let i = 0;i<this.validatorAddJsonData.length;i++)
         this.validatorAddJsonData["new"] = false;
     },
@@ -1187,7 +1276,7 @@ function startCountdown(timestamp, prefix) {
   }, 1000);
 }
 
-axios.get("{% url 'api:check_if_proposal_scheduled' %}?validators={{ validator_array }}")
+axios.get("{% url 'api:check_if_proposal_scheduled' %}")
   .then(response => {
     const { proposal_scheduled, next_block_not_in, next_block_in } = response.data;
 

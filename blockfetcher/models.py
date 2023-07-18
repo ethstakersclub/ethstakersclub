@@ -168,10 +168,10 @@ class Main(models.Model):
 
 
 class Withdrawal(models.Model):
+    index = models.IntegerField(primary_key=True)
     amount = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     validator = models.IntegerField(db_index=True)
     address = models.CharField(max_length=64)
-    index = models.IntegerField()
     block = models.ForeignKey(Block, on_delete=models.CASCADE, null=True)
 
 
@@ -185,14 +185,6 @@ class AttestationCommittee(models.Model):
 
     class Meta:
         unique_together = [["slot", "index"]]
-        #indexes = [
-        #    GistIndex(fields=['validator_ids'], name="validator_ids_gist_idx", fillfactor=60, opclasses=['gist__intbig_ops'])
-        #]
-
-    #class Meta:
-    #    indexes = [
-    #        GinIndex(fields=['validator_ids']),
-    #    ]
 
 
 class StakingDeposit(models.Model):
@@ -252,26 +244,6 @@ class ValidatorBalance(models.Model):
 
     class Meta:
         unique_together = [["validator_id", "date"]]
-
-
-class EpochReward(models.Model):
-    validator_id = models.IntegerField(db_index=True)
-    epoch = models.IntegerField(db_index=True)
-
-    attestation_head = models.IntegerField(default=0)
-    attestation_target = models.IntegerField(default=0)
-    attestation_source = models.IntegerField(default=0)
-
-    sync_reward = models.IntegerField(null=True)
-    sync_penalty = models.IntegerField(null=True)
-
-    block_attestations = models.IntegerField(null=True)
-    block_sync_aggregate = models.IntegerField(null=True)
-    block_proposer_slashings = models.IntegerField(null=True)
-    block_attester_slashings = models.IntegerField(null=True)
-
-    class Meta:
-        unique_together = [["epoch", "validator_id"]]
 
 
 class SyncCommittee(models.Model):

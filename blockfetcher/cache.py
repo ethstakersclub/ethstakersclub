@@ -5,7 +5,7 @@ import json
 def get_validator_from_cache(index):
     try:
         data = cache.get('validator_' + str(index))
-        return json.loads(data.replace("'", "\""))
+        return json.loads(data)
     except:
         return{}
     
@@ -13,10 +13,15 @@ def get_validator_from_cache(index):
 def get_validators_from_cache(index_array):
     cache_keys = [f'validator_{index}' for index in index_array]
     data = cache.get_many(cache_keys)
-    validators = []
-    for value in data.values():
-        validators.append(json.loads(value.replace("'", "\"")))
-    return validators
+
+    return [json.loads(value) for value in data.values()]
+
+
+def get_rewards_and_penalties_from_cache(index_array, epoch):
+    cache_keys = [f"reward_{epoch}:{index}" for index in index_array]
+    data = cache.get_many(cache_keys)
+
+    return [value for value in data.values() if value is not None]
 
 
 def get_active_validators_count_from_cache():
@@ -50,5 +55,12 @@ def get_validator_update_slot_from_cache():
 def get_average_attestation_efficiency_from_cache():
     try:
         return int(cache.get('average_attestation_efficiency'))
+    except:
+        return 0
+    
+
+def get_latest_rewards_and_penalties_epoch():
+    try:
+        return int(cache.get('latest_rewards_and_penalties_epoch'))
     except:
         return 0

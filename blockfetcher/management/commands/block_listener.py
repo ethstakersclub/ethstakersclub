@@ -4,7 +4,6 @@ from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, p
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task
 import json
 import requests
-from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
                                     SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP

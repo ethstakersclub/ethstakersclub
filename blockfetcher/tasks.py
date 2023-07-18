@@ -5,14 +5,14 @@ from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOIN
     EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP, \
     EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
 import requests
-from blockfetcher.models import Block, Validator, Withdrawal, AttestationCommittee, ValidatorBalance, EpochReward, StakingDeposit
+from blockfetcher.models import Block, Withdrawal, AttestationCommittee, ValidatorBalance, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
 import decimal
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
 import binascii
-from django.db.models import Sum, Q, Count, Func, F, Case, When, Value, DecimalField
+from django.db.models import Sum, Q, Count
 from django.utils import timezone
 import time
 import logging
@@ -22,6 +22,7 @@ import timeout_decorator
 from blockfetcher.beacon_api import BeaconAPI
 from django.db import transaction
 from blockfetcher.task_process_validators import process_validators
+from blockfetcher.cache import *
 
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 logger = logging.getLogger(__name__)
@@ -326,6 +327,7 @@ def load_block(slot, epoch):
         logger.warning("potential reorg at slot " + str(slot))
         new_block.empty = 2
         new_block.save()
+        Withdrawal.objects.filter(block=new_block).delete()
         return
     elif block_not_found:
         logger.info("block at slot " + str(slot) + " not found (likely not proposed)")
@@ -391,7 +393,9 @@ def load_block(slot, epoch):
                     )
                     for withdrawal in withdrawals
                 ]
-                Withdrawal.objects.bulk_create(withdrawal_objects)
+                Withdrawal.objects.bulk_create(withdrawal_objects, update_conflicts=True, 
+                                                update_fields=["amount", "validator", "address", "block"], 
+                                                unique_fields=["index"])
                 '''
                 validator_ids = [int(withdrawal["validator_index"]) for withdrawal in withdrawals]
                 validator_total_withdrawals = (
@@ -500,76 +504,90 @@ def load_block(slot, epoch):
 def load_epoch_rewards(epoch):
     logger.info("load epoch " + str(epoch) + " consensus rewards")
 
-    if EpochReward.objects.filter(epoch=int(epoch)).exists():
+    if f"reward_{epoch}:1" in cache:
         return
 
-    with transaction.atomic():
-        attestation_rewards = beacon.get_rewards_attestations(epoch, '[]')
-            
-        sync_rewards = {}
-        for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
-            sync_rewards_json = beacon.get_rewards_sync(slot, '[]')
-            block_not_found = "message" in sync_rewards_json and str(sync_rewards_json["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
-
-            if not block_not_found:
-                for sync_reward in sync_rewards_json["data"]:
-                    validator_index = int(sync_reward["validator_index"])
-                    reward = int(sync_reward["reward"])
-
-                    if reward >= 0:
-                        if validator_index in sync_rewards:
-                            sync_rewards[validator_index]["reward"] += reward
-                        else:
-                            sync_rewards[validator_index] = {"reward": reward, "penalty": 0}
-                    else:
-                        reward *= -1
-                        if validator_index in sync_rewards:
-                            sync_rewards[validator_index]["penalty"] += reward
-                        else:
-                            sync_rewards[validator_index] = {"reward": 0, "penalty": reward}
-
-        epoch_rewards = {}
-        for reward in attestation_rewards["data"]["total_rewards"]:
-            epoch_rewards[int(reward["validator_index"])] = EpochReward(
-                validator_id=int(reward["validator_index"]),
-                epoch=epoch,
-                attestation_head=reward["head"],
-                attestation_target=reward["target"],
-                attestation_source=reward["source"],
-                sync_reward=sync_rewards[int(reward["validator_index"])]["reward"] if int(reward["validator_index"]) in sync_rewards else None,
-                sync_penalty=sync_rewards[int(reward["validator_index"])]["penalty"] if int(reward["validator_index"]) in sync_rewards else None,
-            )
+    attestation_rewards = beacon.get_rewards_attestations(epoch, '[]')
         
-        for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
-            url = BEACON_API_ENDPOINT + "/eth/v1/beacon/rewards/blocks/" + str(slot)
-            block_reward = requests.get(url).json()
-            block_not_found = "message" in block_reward and str(block_reward["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
+    sync_rewards = {}
+    for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
+        sync_rewards_json = beacon.get_rewards_sync(slot, '[]')
+        block_not_found = "message" in sync_rewards_json and str(sync_rewards_json["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
 
-            if not block_not_found:
-                epoch_rewards[int(block_reward["data"]["proposer_index"])].block_attestations = int(block_reward["data"]["attestations"])
-                epoch_rewards[int(block_reward["data"]["proposer_index"])].block_sync_aggregate = int(block_reward["data"]["sync_aggregate"])
-                epoch_rewards[int(block_reward["data"]["proposer_index"])].block_proposer_slashings = int(block_reward["data"]["proposer_slashings"])
-                epoch_rewards[int(block_reward["data"]["proposer_index"])].block_attester_slashings = int(block_reward["data"]["attester_slashings"])
+        if not block_not_found:
+            for sync_reward in sync_rewards_json["data"]:
+                validator_index = int(sync_reward["validator_index"])
+                reward = int(sync_reward["reward"])
 
-        EpochReward.objects.bulk_create(epoch_rewards.values(), batch_size=512, update_conflicts=True, 
-                                        update_fields=["attestation_head", "attestation_target", "attestation_source", "sync_reward", 
-                                                               "sync_penalty", "block_attestations", "block_sync_aggregate", "block_proposer_slashings", 
-                                                               "block_attester_slashings"], 
-                                                unique_fields=["validator_id", "epoch"])
+                if reward >= 0:
+                    if validator_index in sync_rewards:
+                        sync_rewards[validator_index]["reward"] += reward
+                    else:
+                        sync_rewards[validator_index] = {"reward": reward, "penalty": 0}
+                else:
+                    reward *= -1
+                    if validator_index in sync_rewards:
+                        sync_rewards[validator_index]["penalty"] += reward
+                    else:
+                        sync_rewards[validator_index] = {"reward": 0, "penalty": reward}
 
-    logger.info(f"delete epoch {epoch} old consensus rewards")
+    epoch_rewards = {}
+    for reward in attestation_rewards["data"]["total_rewards"]:
+        epoch_rewards[int(reward["validator_index"])] = {
+            "validator_id": int(reward["validator_index"]),
+            "epoch": epoch,
+            "attestation_head": int(reward["head"]),
+            "attestation_target": int(reward["target"]),
+            "attestation_source": int(reward["source"]),
+            "sync_reward": int(sync_rewards[int(reward["validator_index"])]["reward"]) if int(reward["validator_index"]) in sync_rewards else None,
+            "sync_penalty": int(sync_rewards[int(reward["validator_index"])]["penalty"]) if int(reward["validator_index"]) in sync_rewards else None,
+        }
+    
+    for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
+        url = BEACON_API_ENDPOINT + "/eth/v1/beacon/rewards/blocks/" + str(slot)
+        block_reward = requests.get(url).json()
+        block_not_found = "message" in block_reward and str(block_reward["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
 
-    epoch_reward_objects_to_delete = EpochReward.objects.filter(epoch__lt=epoch-EPOCH_REWARDS_HISTORY_DISTANCE)
+        if not block_not_found:
+            epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_attestations"] = int(block_reward["data"]["attestations"])
+            epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_sync_aggregate"] = int(block_reward["data"]["sync_aggregate"])
+            epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_proposer_slashings"] = int(block_reward["data"]["proposer_slashings"])
+            epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_attester_slashings"] = int(block_reward["data"]["attester_slashings"])
 
-    if epoch_reward_objects_to_delete.exists():
-        first_pk_to_delete = epoch_reward_objects_to_delete.first().pk
-        last_pk_to_delete = epoch_reward_objects_to_delete.last().pk
-        batch_size = 50000
-        last_deleted = 0
-        for i in range(first_pk_to_delete, last_pk_to_delete - batch_size, batch_size):
-            EpochReward.objects.filter(pk__gte=i, pk__lte=i+batch_size).delete()
-            last_deleted = i
-        EpochReward.objects.filter(pk__gte=last_deleted, pk__lte=last_pk_to_delete).delete()
+    cache_data = {}
+    for count, val in enumerate(epoch_rewards.values()):
+        if count % 50000 == 0:
+            logger.info(f"loaded {count} validator rewards")
+        
+        reward_array = [val["attestation_head"],
+                        val["attestation_target"],
+                        val["attestation_source"],
+                        val["sync_reward"] if val["sync_reward"] is not None else 0,
+                        val["sync_penalty"] if val["sync_penalty"] is not None else 0,
+                        val["block_attestations"] if "block_attestations" in val else 0,
+                        val["block_sync_aggregate"] if "block_sync_aggregate" in val else 0,
+                        val["block_proposer_slashings"] if "block_proposer_slashings" in val else 0,
+                        val["block_attester_slashings"] if "block_attester_slashings" in val else 0]
+
+        cache_data[f"reward_{val['epoch']}:{val['validator_id']}"] = reward_array
+
+        if len(cache_data) > 200000:
+            logger.info("bulk add validator rewards to cache...")
+            cache.set_many(cache_data, timeout=(EPOCH_REWARDS_HISTORY_DISTANCE + 2)*SLOTS_PER_EPOCH*SECONDS_PER_SLOT)
+            cache_data = {}
+
+    logger.info("bulk add validator rewards to cache...")
+    cache.set_many(cache_data, timeout=(EPOCH_REWARDS_HISTORY_DISTANCE + 2)*SLOTS_PER_EPOCH*SECONDS_PER_SLOT)
+
+    if get_latest_rewards_and_penalties_epoch() < epoch:
+        cache.set("latest_rewards_and_penalties_epoch", epoch, timeout=(EPOCH_REWARDS_HISTORY_DISTANCE + 2)*SLOTS_PER_EPOCH*SECONDS_PER_SLOT)
+
+    if epoch > EPOCH_REWARDS_HISTORY_DISTANCE + 2:
+        for ep in range(epoch - ((EPOCH_REWARDS_HISTORY_DISTANCE + 2) * 2), epoch - (EPOCH_REWARDS_HISTORY_DISTANCE + 2)):
+            cache.delete_many([
+                        f"reward_{ep}:{validator_id}"
+                        for validator_id in range(len(attestation_rewards["data"]["total_rewards"]))
+                    ])
 
 
 def get_block_reward(execution_block, block):

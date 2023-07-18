@@ -1,18 +1,14 @@
 from django.http import JsonResponse
 from django.shortcuts import render
-from blockfetcher.models import EpochReward, Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, MissedAttestation, SyncCommittee, MissedSync
+from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, SyncCommittee
 from django.core.cache import cache
 from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, BEACON_API_ENDPOINT, GENESIS_TIMESTAMP, VALIDATOR_MONITORING_LIMIT
-import json
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.db.models import Sum
+from django.db.models import Sum, Count, F
 from blockfetcher.cache import *
-from django.db import connection
-from collections import defaultdict
-from django.db import models
-from api.util import calculate_activation_epoch
-from api.util import measure_execution_time
+from django.db import connection, models
+from api.util import calculate_activation_epoch, measure_execution_time
 
 
 def get_blocks(request):
@@ -36,7 +32,7 @@ def get_blocks(request):
     if range_value > 100 or range_value < 0:
         return JsonResponse({'message': 'Invalid range value. Range must be 100 or less.','success': False})
     elif direction_value != "ascending" and direction_value != "descending":
-        return JsonResponse({'message': 'Invalid cursor value.','success': False})
+        return JsonResponse({'message': 'Invalid direction value.','success': False})
     else:
         if direction_value == "ascending":
             blocks = Block.objects.filter(slot_number__gte=from_slot).order_by("-slot_number")
@@ -124,12 +120,18 @@ def extract_validator_ids(request):
     validator_ids = request.GET.get('validators')
 
     if not validator_ids:
-        return None
-
-    try:
-        validator_ids = [int(id) for id in validator_ids.split(',')]
-    except ValueError:
-        return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid validator ID provided.'})
+        if request.user.is_authenticated:
+            try:
+                validator_ids = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
+            except:
+                return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid validator ID provided.'})
+        else:
+            return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid validator ID provided.'})
+    else:
+        try:
+            validator_ids = [int(id) for id in validator_ids.split(',')]
+        except ValueError:
+            return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid validator ID provided.'})
 
     for validator_id in validator_ids:
         if validator_id <= 0:
@@ -139,6 +141,8 @@ def extract_validator_ids(request):
 
     if len(unique_validators_array) > VALIDATOR_MONITORING_LIMIT:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Too many validators added.'})
+    elif len(unique_validators_array) <= 0:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'No validator ids provided'})
 
     return unique_validators_array
 
@@ -162,13 +166,17 @@ def api_get_attestations(request):
     else:
         include_pending = bool(include_pending)
 
-    epochs_to_check = 5
-    if len(validator_ids) > 5:
-        epochs_to_check = 3
-    if len(validator_ids) > 10:
-        epochs_to_check = 2
-    if len(validator_ids) > 50:
-        epochs_to_check = 0.4
+    validator_count = len(validator_ids)
+
+    slots_to_check = 5 * SLOTS_PER_EPOCH
+    if validator_count > 5:
+        slots_to_check = 3 * SLOTS_PER_EPOCH
+    if validator_count > 10:
+        slots_to_check = 2 * SLOTS_PER_EPOCH
+    if validator_count > 50:
+        slots_to_check = 0.4 * SLOTS_PER_EPOCH
+    if validator_count >= 200:
+        slots_to_check = 10
 
     if to_slot == 'head':
         if include_pending:
@@ -181,8 +189,8 @@ def api_get_attestations(request):
 
     if to_slot - from_slot <= 0:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid from_slot provided. Is higher than to_slot.'})
-    elif to_slot - from_slot > (SLOTS_PER_EPOCH * epochs_to_check):
-        from_slot = to_slot - (SLOTS_PER_EPOCH * epochs_to_check)
+    elif to_slot - from_slot > slots_to_check:
+        from_slot = to_slot - slots_to_check
 
     attestations = get_attestations(validator_ids, from_slot, to_slot)
 
@@ -196,42 +204,12 @@ def api_get_attestations(request):
     return JsonResponse(response)
 
 def get_attestations(index_numbers, from_slot, to_slot):
-    attestations = AttestationCommittee.objects \
-                    .filter(slot__gte=from_slot,
-                            slot__lte=to_slot,
-                            validator_ids__overlap=index_numbers) \
-                    .values('validator_ids', 'distance', 'epoch', 'slot')\
-                    .order_by('-slot') \
-
-    '''
-    query = '''
-    #    SELECT u.element AS matching_number, t.distance[u.index1] AS corresponding_number, t.slot AS slot_value, t.epoch AS epoch_value
-    #    FROM blockfetcher_attestationcommittee t
-    #    CROSS JOIN LATERAL unnest(t.validator_ids) WITH ORDINALITY AS u(element, index1)
-    #    WHERE t.slot >= %s
-    #    AND t.slot <= %s
-    #    AND t.validator_ids && %s
-    #    AND u.element = ANY(%s)
-    #    ORDER BY
-    #    t.slot DESC
-    '''
-
-    with connection.cursor() as cursor:
-        cursor.execute(query, [from_slot, to_slot, index_numbers, index_numbers])
-        results = cursor.fetchall()
-
-    # Process the results as needed
-    for row in results:
-        matching_number = row[0]
-        corresponding_number = row[1]
-        slot = row[2]
-        epoch = row[3]
-        print(matching_number)
-        print(corresponding_number)
-        print(slot)
-        print(epoch)
-        # Do something with the values
-    '''
+    if len(index_numbers) >= 200 and (to_slot - from_slot) <= 10:
+        attestations = AttestationCommittee.objects.filter(slot__gte=from_slot, slot__lte=to_slot)
+    else:
+        attestations = AttestationCommittee.objects.filter(slot__gte=from_slot, slot__lte=to_slot, validator_ids__overlap=index_numbers)
+                        
+    attestations = attestations.order_by('-slot').values('validator_ids', 'distance', 'epoch', 'slot')
     
     validator_ids_set = set(index_numbers)
     attestation_distances = [
@@ -247,6 +225,76 @@ def get_attestations(index_numbers, from_slot, to_slot):
     ]
     
     return attestation_distances
+
+
+@measure_execution_time
+def api_get_attestations_for_slots(request):
+    validator_ids = extract_validator_ids(request)
+    if isinstance(validator_ids, JsonResponse):
+        return validator_ids
+    
+    from_slot = int(request.GET.get('from_slot'))
+    to_slot = request.GET.get('to_slot')
+
+    range_value = int(request.GET.get('range', 10))
+    if range_value <= 0:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid range. Is lower or equal to 0.'})
+    elif range_value > 10:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid range. Is higher than 10.'})
+
+    include_pending = bool(request.GET.get('include_pending', False))
+
+    if to_slot == 'head':
+        if include_pending:
+            latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
+        else:
+            latest_block = Block.objects.filter(proposer__isnull=False).exclude(block_number=None).order_by("-slot_number").first()
+        to_slot = latest_block.slot_number
+    else:
+        to_slot = int(to_slot)
+
+    if to_slot - from_slot <= 0:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid from_slot provided. Is higher than to_slot.'})
+    elif to_slot - from_slot > 9:
+        from_slot = to_slot - (range_value - 1)
+
+    attestations = get_attestations_for_slots(validator_ids, from_slot, to_slot)
+
+    response = {
+        'success': True,
+        'data': attestations,
+        'from_slot': from_slot,
+        'to_slot': to_slot,
+    }
+
+    return JsonResponse(response)
+
+
+def get_attestations_for_slots(index_numbers, from_slot, to_slot):
+    attestations = AttestationCommittee.objects \
+                    .filter(slot__gte=from_slot,
+                            slot__lte=to_slot) \
+                    .values('validator_ids', 'distance', 'slot')
+
+    validator_ids_set = set(index_numbers)
+    slots = {}
+    for slot in range(from_slot, to_slot+1):
+        slots[slot] = {
+            "epoch": int(slot / SLOTS_PER_EPOCH),
+            "distance": [],
+            "slot": slot,
+            "block_timestamp": calc_time_of_slot(slot + 1).isoformat(),
+            "validator_id": []
+        }
+
+    for attestation in attestations:
+        for id in set(attestation['validator_ids']).intersection(validator_ids_set):
+            slots[attestation['slot']]["distance"].append(attestation['distance'][attestation['validator_ids'].index(id)])
+            slots[attestation['slot']]["validator_id"].append(id)
+    
+    ordered_list = sorted(list(slots.values()), key=lambda x: x["slot"], reverse=True)
+    
+    return ordered_list
 
 
 @measure_execution_time
@@ -283,12 +331,10 @@ def api_get_withdrawals(request):
     return JsonResponse(response)
 
 
-def get_withdrawals(index_numbers, cursor_value, range_value):
-    withdrawals = Withdrawal.objects.filter(validator__in=index_numbers).order_by("-index")
+def get_withdrawals(index_numbers, cursor_value, range_value):    
+    withdrawals = list(Withdrawal.objects.filter(validator__in=index_numbers).order_by("-index")[cursor_value:cursor_value+range_value]
+                       .values('validator', 'address', 'amount', 'block__slot_number', 'block__timestamp'))
     
-    withdrawals = list(withdrawals[cursor_value:cursor_value+range_value].values('validator', 'address',
-                                              'amount', 'block__slot_number',
-                                              'block__timestamp'))
     for entry in withdrawals:
         entry["block__timestamp"] = entry["block__timestamp"].isoformat()
         entry["amount"] = float(entry["amount"] / 10 ** 9)
@@ -337,7 +383,7 @@ def api_get_sync_committee_participation(request):
 def get_sync_committee_participation(index_numbers, from_slot, range):
     sync_period_of_target_slot = int(from_slot / (SLOTS_PER_EPOCH*256)) + 1
 
-    participated_sync_committee = SyncCommittee.objects.filter(validator_ids__overlap=index_numbers, period__lte=sync_period_of_target_slot).order_by("-period").values("validator_ids", "period")
+    participated_sync_committee = SyncCommittee.objects.filter(validator_ids__overlap=index_numbers, period__lte=sync_period_of_target_slot).order_by("-period")[:3].values("validator_ids", "period")
     participated_sync_committee_mapping = {item["period"]: item["validator_ids"] for item in participated_sync_committee}
 
     sync_committee_participation = []
@@ -410,8 +456,7 @@ def api_get_rewards_and_penalties(request):
     from_epoch = request.GET.get('from_epoch')
 
     if from_epoch == 'head':
-        latest_block = EpochReward.objects.order_by("-epoch").first()
-        from_epoch = latest_block.epoch
+        from_epoch = get_latest_rewards_and_penalties_epoch()
     else:
         from_epoch = int(from_epoch)
 
@@ -433,77 +478,44 @@ def api_get_rewards_and_penalties(request):
 
 
 def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
-    epoch_attestation_rewards = EpochReward.objects.filter(epoch__gte=epoch_from, epoch__lte=epoch_to, validator_id__in=index_numbers)\
-        .values("epoch", "attestation_head", "attestation_target", "attestation_source",
-                "sync_reward", "sync_penalty", "block_attestations", "block_sync_aggregate",
-                "block_proposer_slashings", "block_attester_slashings")
-    
-    rewards_penalties = defaultdict(
-        lambda: {
-            'epoch': 0,
-            'head': 0,
-            'target': 0,
-            'source': 0,
-            'total_reward': 0,
-            'sync_reward': 0,
-            'sync_penalty': 0,
-            'block_attestations': 0,
-            'block_sync_aggregate': 0,
-            'block_proposer_slashings': 0,
-            'block_attester_slashings': 0,
-            'attestations': 0,
-            'missed_attestations': 0
-        }
-    )
+    rewards_penalties = []
 
-    for reward in epoch_attestation_rewards:
-        rewards_penalties[reward["epoch"]]['epoch'] = int(reward["epoch"])
-        rewards_penalties[reward["epoch"]]['head'] += int(reward["attestation_head"])
-        rewards_penalties[reward["epoch"]]['target'] += int(reward["attestation_target"])
-        rewards_penalties[reward["epoch"]]['source'] += int(reward["attestation_source"])
-        rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["attestation_head"]) + int(reward["attestation_target"]) + int(reward["attestation_source"])
+    for epoch in reversed(range(epoch_from, epoch_to+1)):
+        epoch_attestation_rewards = get_rewards_and_penalties_from_cache(index_numbers, epoch)
 
-        if reward["sync_reward"] is not None or reward["sync_penalty"] is not None:
-            try:
-                rewards_penalties[reward["epoch"]]['sync_reward'] += int(reward["sync_reward"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["sync_reward"])
-            except:
-                pass
-            try:
-                rewards_penalties[reward["epoch"]]['sync_penalty'] -= int(reward["sync_penalty"])
-                rewards_penalties[reward["epoch"]]['total_reward'] -= int(reward["sync_penalty"])
-            except:
-                pass
+        head = sum(v[0] for v in epoch_attestation_rewards)
+        target = sum(v[1] for v in epoch_attestation_rewards)
+        source = sum(v[2] for v in epoch_attestation_rewards)
+        sync_reward = sum(v[3] for v in epoch_attestation_rewards)
+        sync_penalty = sum(v[4] for v in epoch_attestation_rewards)
+        block_attestations = sum(v[5] for v in epoch_attestation_rewards)
+        block_sync_aggregate = sum(v[6] for v in epoch_attestation_rewards)
+        block_proposer_slashings = sum(v[7] for v in epoch_attestation_rewards)
+        block_attester_slashings = sum(v[8] for v in epoch_attestation_rewards)
+        attestations = sum(1 for v in epoch_attestation_rewards if (v[0] + v[1] + v[2]) >= 0)
+        missed_attestations = len(epoch_attestation_rewards) - attestations
+        total_reward = head + target + source + sync_reward + sync_penalty + block_attestations + \
+            block_sync_aggregate + block_proposer_slashings + block_attester_slashings
+                
+        rewards_penalties.append(
+            {
+                'epoch': epoch,
+                'head': head,
+                'target': target,
+                'source': source,
+                'sync_reward': sync_reward,
+                'sync_penalty': sync_penalty,
+                'block_attestations': block_attestations,
+                'block_sync_aggregate': block_sync_aggregate,
+                'block_proposer_slashings': block_proposer_slashings,
+                'block_attester_slashings': block_attester_slashings,
+                'attestations': attestations,
+                'missed_attestations': missed_attestations,
+                'total_reward': total_reward,
+            }
+        )
 
-        if reward["block_attestations"] is not None:
-            try:
-                rewards_penalties[reward["epoch"]]['attestations_reward'] += int(reward["block_attestations"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["block_attestations"])
-            except:
-                pass
-            try:
-                rewards_penalties[reward["epoch"]]['sync_aggregate'] += int(reward["block_sync_aggregate"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["block_sync_aggregate"])
-            except:
-                pass
-            try:
-                rewards_penalties[reward["epoch"]]['proposer_slashings'] += int(reward["block_proposer_slashings"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["block_proposer_slashings"])
-            except:
-                pass
-            try:
-                rewards_penalties[reward["epoch"]]['attester_slashings'] += int(reward["block_attester_slashings"])
-                rewards_penalties[reward["epoch"]]['total_reward'] += int(reward["block_attester_slashings"])
-            except:
-                pass
-
-        if int(reward["attestation_source"]) > 0 or int(reward["attestation_target"]) > 0 or int(reward["attestation_head"]) > 0:
-            rewards_penalties[reward["epoch"]]['attestations'] += 1
-        else:
-            rewards_penalties[reward["epoch"]]['missed_attestations'] += 1
-
-    ordered_rewards_penalties = sorted(rewards_penalties.values(), key=lambda x: x['epoch'], reverse=True)
-    return ordered_rewards_penalties
+    return rewards_penalties
 
 
 @measure_execution_time
@@ -551,35 +563,42 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
         cached_validators = get_validators_from_cache(index_array)
         validator_update_slot = get_validator_update_slot_from_cache()
 
-    history = list(ValidatorBalance.objects.filter(validator_id__in=index_array, date__lte=from_date, date__gt=(from_date - timedelta(days=range_value)))
-                   .order_by("date").values('date', 'validator_id', 'slot', 'total_consensus_balance', 'execution_reward', 'missed_attestations', 'missed_sync'))
+    history = list(
+        ValidatorBalance.objects.filter(validator_id__in=index_array, date__lte=from_date, date__gt=(from_date - timedelta(days=range_value)))
+        .values('date')
+        .annotate(
+            total_consensus_balance_sum=Sum('total_consensus_balance'),
+            execution_reward_sum=Sum('execution_reward'),
+            missed_attestations_sum=Sum('missed_attestations'),
+            missed_sync_sum=Sum('missed_sync'),
+            validator_count=Count('validator_id'),
+            last_slot=F('slot')
+        )
+        .order_by('date')
+    )
+
     try:
-        history_last_slot = history[-1]["slot"]
+        history_last_slot = history[-1]["last_slot"]
     except:
         history_last_slot = 0
-
+    
     if timezone.now().date() == from_date:
         if len(history) == 0 or (len(history) > 0 and history_last_slot < validator_update_slot):
-            for v in cached_validators:
-                history.append(
-                    {
-                        "date": timezone.now().date(),
-                        "validator_id": int(v["validator_id"]),
-                        "slot": validator_update_slot,
-                        "total_consensus_balance": v["total_consensus_balance"],
-                        "execution_reward": v["execution_reward"],
-                        "missed_attestations": v["missed_attestations"],
-                        "missed_sync": v["missed_sync"]
-                    }
-                )
+            total_consensus_balance_sum = sum(v["total_consensus_balance"] for v in cached_validators)
+            execution_reward_sum = sum(v["execution_reward"] for v in cached_validators)
+            missed_attestations_sum = sum(v["missed_attestations"] for v in cached_validators)
+            missed_sync_sum = sum(v["missed_sync"] for v in cached_validators)
 
-    try:
-        history_last_slot = history[-1]["slot"]
-    except:
-        history_last_slot = 0
-
-    previous_balance = None
-    previous_execution_reward = None
+            history.append(
+                {
+                    "date": timezone.now().date(),
+                    "total_consensus_balance_sum": total_consensus_balance_sum,
+                    "execution_reward_sum": execution_reward_sum,
+                    "missed_attestations_sum": missed_attestations_sum,
+                    "missed_sync_sum": missed_sync_sum,
+                    "validator_count": len(cached_validators)
+                }
+            )
 
     total_rewards = {"total_execution_reward": 0,
                      "total_consensus_reward": 0,
@@ -597,33 +616,24 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
             "diff": timezone.now().date() - timedelta(days=d),
            } for d in [1,7,30]]
 
-    previous_balance = {}
-    previous_execution_reward = {}
     now_date = timezone.now().date()
     chart_data_mapping = {}
+    previous_balance = 0
+    previous_execution_reward = 0
 
     for entry in history:
-        if entry["validator_id"] in previous_balance:
-            balance_change = entry["total_consensus_balance"] - previous_balance[entry["validator_id"]]
-            execution_reward_change = entry["execution_reward"] - previous_execution_reward[entry["validator_id"]]
+        if previous_balance != 0:
+            balance_change = entry["total_consensus_balance_sum"] - previous_balance
+            execution_reward_change = entry["execution_reward_sum"] - previous_execution_reward
 
-            # Find existing entry with the same date in the mapping
-            existing_entry = chart_data_mapping.get(entry["date"].isoformat())
-
-            if existing_entry:
-                existing_entry['balance_change'] += float(balance_change / 1000000000)
-                existing_entry['execution_reward_change'] += float(execution_reward_change / 10**18)
-                existing_entry['missed_attestations_change'] += int(entry["missed_attestations"])
-                existing_entry['missed_sync_change'] += int(entry["missed_sync"])
-            else:
-                new_entry = {
-                    'date': entry["date"].isoformat(),
-                    'balance_change': float(balance_change / 1000000000),
-                    'execution_reward_change': float(execution_reward_change / 10**18),
-                    'missed_attestations_change': int(entry["missed_attestations"]),
-                    'missed_sync_change': int(entry["missed_sync"])
-                }
-                chart_data_mapping[entry["date"].isoformat()] = new_entry
+            new_entry = {
+                'date': entry["date"].isoformat(),
+                'balance_change': float(balance_change / 1000000000),
+                'execution_reward_change': float(execution_reward_change / 10**18),
+                'missed_attestations_change': int(entry["missed_attestations_sum"]),
+                'missed_sync_change': int(entry["missed_sync_sum"])
+            }
+            chart_data_mapping[entry["date"].isoformat()] = new_entry
 
             for e in apy:
                 if entry["date"] < now_date and entry["date"] >= e["diff"]:
@@ -631,13 +641,12 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                     e["consensus_reward"] += float(balance_change / 1000000000)
                     e["entry_count"] += 1
 
-            if history_last_slot == entry["slot"]:
-                total_rewards["total_execution_reward"] += (entry["execution_reward"] / 10**18)
-                total_rewards["total_consensus_reward"] += (entry["total_consensus_balance"] / 1000000000) - BALANCE_PER_VALIDATOR
-
-        if entry["total_consensus_balance"] >= 32 * 1000000000:
-            previous_balance[entry["validator_id"]] = entry["total_consensus_balance"]
-            previous_execution_reward[entry["validator_id"]] = entry["execution_reward"]
+        previous_balance = entry["total_consensus_balance_sum"]
+        previous_execution_reward = entry["execution_reward_sum"]
+    
+    if len(history) > 0:
+        total_rewards["total_execution_reward"] = (history[-1]["execution_reward_sum"] / 10**18)
+        total_rewards["total_consensus_reward"] = (history[-1]["total_consensus_balance_sum"] / 1000000000) - BALANCE_PER_VALIDATOR
 
     for e in apy:
         e["total_reward"] = (e["execution_reward"] + e["consensus_reward"])
@@ -713,7 +722,6 @@ def check_if_proposal_scheduled(request):
     current_slot = get_current_slot_from_cache()
 
     pending_blocks = Block.objects.filter(proposer__isnull=False, timestamp__gt=timezone.now(), slot_number__gt=current_slot).order_by("slot_number")
-    print(len(pending_blocks))
 
     if len(pending_blocks) > 0:
         next_proposal = pending_blocks.filter(proposer__in=validator_ids)
@@ -738,3 +746,69 @@ def check_if_proposal_scheduled(request):
     }
 
     return JsonResponse(response)
+
+
+@measure_execution_time
+def api_get_blocks_by_proposer(request):
+    validator_ids = extract_validator_ids(request)
+    if isinstance(validator_ids, JsonResponse):
+        return validator_ids
+    
+    range_value = int(request.GET.get('range', 5))
+    cursor_value = int(request.GET.get('cursor', 0))
+    direction_value = str(request.GET.get('direction', "descending"))
+    order_by = str(request.GET.get('order_by', 'slot'))
+    
+    if range_value > 25 or range_value < 0:
+        response = {
+            'message': 'Invalid range value. Range must be 100 or less.',
+            'success': False,
+        }
+        return JsonResponse(response)
+    elif cursor_value < 0:
+        response = {
+            'message': 'Invalid cursor value.',
+            'success': False,
+        }
+        return JsonResponse(response)
+    elif direction_value != "ascending" and direction_value != "descending":
+        return JsonResponse({'message': 'Invalid direction value.','success': False})
+    elif order_by != 'slot' and order_by != 'total_reward':
+        order_by = 'slot'
+
+    blocks = get_blocks_by_proposer(validator_ids, cursor_value, range_value, direction_value, order_by)
+
+    response = {
+        'success': True,
+        'data': blocks,
+        'range_value': range_value,
+        'cursor_value': cursor_value,
+    }
+
+    return JsonResponse(response)
+
+
+def get_blocks_by_proposer(index_numbers, cursor_value, range_value, direction_value, order_by):
+    blocks = Block.objects.filter(proposer__in=index_numbers)
+
+    if order_by == "total_reward":
+        if direction_value == "descending":
+            blocks = blocks.order_by("-total_reward")
+        else:
+            blocks = blocks.order_by("total_reward")
+    else:
+        if direction_value == "descending":         
+            blocks = blocks.order_by("-slot_number")
+        else:
+            blocks = blocks.order_by("slot_number")
+        
+    blocks = list(blocks[cursor_value:cursor_value+range_value].values('proposer', 'block_number','slot_number', 'fee_recipient', 'mev_reward_recipient',
+                                                                       'timestamp', 'total_reward', 'epoch', 'mev_boost_relay', 'empty'))
+    for entry in blocks:
+        entry["timestamp"] = entry["timestamp"].isoformat()
+        entry["total_reward"] = float(entry["total_reward"] / 10**18)
+
+        if entry["mev_boost_relay"] != None and len(entry["mev_boost_relay"]) > 0:
+            entry["fee_recipient"] = entry["mev_reward_recipient"]
+
+    return blocks

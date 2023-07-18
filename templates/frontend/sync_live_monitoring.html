@@ -30,8 +30,7 @@
         <div>
             <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
             :key-prop="'slot'" :allow-sort="false" fetch-strategy="slot_range" :api-endpoint="'/api/sync_committee_participation'"
-            :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" :rows-per-page-options="[50]"
-            :live-update="true" :title="'Sync-Committee - Live Monitoring'" />
+            :item-count="{{ sync_duty_count }}" :rows-per-page-options="[50]" :live-update="true" :title="'Sync-Committee - Live Monitoring'" />
         </div>
       </div>
     </div>

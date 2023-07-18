@@ -4,6 +4,7 @@
 {% block title %}Dashboard - Attestation Live Minitoring - {% endblock %}
 
 {% block head %}
+{% if validator_count <= 300 %}
 <style>
   .dark-theme table.table th,
   .dark-theme table.table td {
@@ -13,6 +14,7 @@
     padding-left: 5px;
   }
 </style>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -28,9 +30,16 @@
     <div class="col-md-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
         <div>
-          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns" :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% else %}50{% endif %}]"
-           :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :allow-sort="false" :key-prop="'slot'"
-           :query-parameters="[{validators: '{{ validator_array }}' }]" :key-prop2="'validator_id'" :live-update="true" :title="'Attestation Live Monitoring'" />
+          <table-component :data="attestationsJsonData" :columns="attestationsTableColumns"
+           :allow-sort="false" :key-prop="'slot'" :live-update="true" :title="'Attestation Live Monitoring'"
+           {% if validator_count <= 300 %}
+           :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% else %}50{% endif %}]"
+           :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :key-prop2="'validator_id'"
+           :slot-range="{% if validator_count == 1 %}320{% elif validator_count < 3 %}160{% elif validator_count < 6 %}80{% elif validator_count < 11 %}40{% else %}32{% endif %}"
+           {% else %}
+           :item-count="{{ slots_since_first_online }}" :api-endpoint="'/api/attestations_for_slots'" :slot-range="10" :rows-per-page-options="[10]"
+           {% endif %}
+           />
         </div>
       </div>
     </div>
@@ -63,6 +72,7 @@
       return {
         rowsPerPage: [50],
         attestationsJsonData: [],
+        {% if validator_count <= 300 %}
         attestationsTableColumns: [
           { key: 'epoch', label: 'Epoch',
             renderFunction: (value, item) => {
@@ -110,6 +120,103 @@
             },
           },
         ],
+        {% else %}
+        attestationsTableColumns: [
+          { key: 'epoch', label: 'Epoch',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
+            link: (value, item) => {
+              return '/epoch/' + value;
+            },
+          },
+          { key: 'slot', label: 'Slot',
+            renderFunction: (value, item) => {
+              return value.toLocaleString().replace(/\./g, ',')
+            },
+            link: (value, item) => {
+              return '/slot/' + value;
+            },
+          },
+          { key: 'block_timestamp', label: 'Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'distance', label: 'Distance',
+            renderFunction: (value, item) => {
+              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                            
+              let missed_attestation_string = "m";
+              if (timeDifference <= 200)
+                missed_attestation_string = "-"
+
+              return value.map((value, index) => {
+                if (value === 255)
+                  return item.validator_id[index];
+                else
+                  return `${item.validator_id[index]}[${value}]`;
+              }).join(", ");
+            },
+          },
+          { key: 'distance', label: 'Avg. Distance',
+            renderFunction: (value, item) => {
+              let sum = 0;
+              if(calculateTimeDifferenceSeconds(item.block_timestamp) > 100){
+                sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
+              }
+              else{
+                console.log(value.filter(val => val !== 255))
+                sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
+              }
+              const countMissed = value.filter(val => val === 255).length;
+              
+              let averageDistance = "-";
+              if(countMissed !== value.length){
+                averageDistance = sum / value.length;
+                
+                if (averageDistance % 1 !== 0) {
+                  averageDistance = averageDistance.toFixed(2);
+                }
+              }
+              
+              if(value.length > 0)
+                return averageDistance
+              else
+                return "no attestation"
+            },
+            tooltipFunction: (value, item) => {
+              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+
+              let missed_attestation_string = "missed";
+              if(timeDifference <= 200)
+                missed_attestation_string = "pending"
+
+              return value.map(value => value === 255 ? missed_attestation_string : value).join(", ")
+            },
+          },
+          { key: 'distance', label: 'Attestet',
+            renderFunction: (value, item) => {
+              console.log(item)
+              const missed_count = value.filter(val => val === 255).length;
+              return (value.length - missed_count) + "/" + value.length
+            },
+            renderClass: (value, item) => {
+              const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+              const countMissed = value.filter(val => val === 255).length;
+
+              percentAttestet = (value.length - countMissed) / value.length * 100
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-danger': percentAttestet < 80 && timeDifference > 60,
+                'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && timeDifference > 60,
+                'bg-primary': timeDifference <= 60 && percentAttestet < 95,
+                'bg-success': percentAttestet >= 95,
+              };
+            },
+          },
+        ],
+        {% endif %}
       };
     },
     mounted() {
