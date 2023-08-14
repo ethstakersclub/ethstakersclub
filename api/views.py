@@ -584,6 +584,8 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     
     active_validator_count = sum(1 for v in cached_validators if v["status"] == "active_ongoing" or v["status"] == "active_exiting" or v["status"] == "active_slashed")
 
+    total_deposited = sum(v["deposited"] for v in cached_validators) / 1000000000
+
     if timezone.now().date() == from_date:
         if len(history) == 0 or (len(history) > 0 and history_last_slot < validator_update_slot):
             total_consensus_balance_sum = sum(v["total_consensus_balance"] for v in cached_validators)
@@ -645,7 +647,7 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     
     if len(history) > 0:
         total_rewards["total_execution_reward"] = (history[-1]["execution_reward_sum"] / 10**18)
-        total_rewards["total_consensus_reward"] = (history[-1]["total_consensus_balance_sum"] / 1000000000) - BALANCE_PER_VALIDATOR
+        total_rewards["total_consensus_reward"] = (history[-1]["total_consensus_balance_sum"] / 1000000000) - total_deposited
 
     for e in apy:
         e["total_reward"] = (e["execution_reward"] + e["consensus_reward"])

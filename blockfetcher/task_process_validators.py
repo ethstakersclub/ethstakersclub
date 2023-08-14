@@ -133,6 +133,17 @@ def calculate_total_execution_reward_by_validator():
     return total_execution_rewards
 
 
+def calculate_total_deposited_by_validator():
+    logger.info("calculate total deposit sum for each validator")
+
+    deposit_totals = StakingDeposit.objects.all().values('validator_id').annotate(deposit_total=Sum('amount'))
+
+    total_deposited = {int(d['validator_id']): int(d['deposit_total']) for d in
+                               deposit_totals if d['validator_id'] is not None}
+    
+    return total_deposited
+
+
 def calculate_validator_missed_attestations(slot):
     logger.info("calculate missed attestations at date")
     
@@ -311,6 +322,8 @@ def process_validators(slot):
 
     withdrawals_per_validator_dict = count_withdrawals_per_validator(slot)
 
+    total_deposited_dict = calculate_total_deposited_by_validator()
+
     ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
 
     pending_validators, active_validators = 0, 0
@@ -340,6 +353,7 @@ def process_validators(slot):
             "am_proposals": proposals_after_merge_per_validator_dict[int(val["index"])] if int(val["index"]) in proposals_after_merge_per_validator_dict else 0,
             "max_reward": max_reward_per_validator_dict[int(val["index"])] if int(val["index"]) in max_reward_per_validator_dict else 0,
             "withdrawals": withdrawals_per_validator_dict[int(val["index"])] if int(val["index"]) in withdrawals_per_validator_dict else 0,
+            "deposited": total_deposited_dict[int(val["index"])] if int(val["index"]) in total_deposited_dict else 0,
         }
 
         cache_data['validator_' + str(int(val["index"]))] = json.dumps(validator)
