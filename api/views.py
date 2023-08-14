@@ -483,37 +483,38 @@ def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
     for epoch in reversed(range(epoch_from, epoch_to+1)):
         epoch_attestation_rewards = get_rewards_and_penalties_from_cache(index_numbers, epoch)
 
-        head = sum(v[0] for v in epoch_attestation_rewards)
-        target = sum(v[1] for v in epoch_attestation_rewards)
-        source = sum(v[2] for v in epoch_attestation_rewards)
-        sync_reward = sum(v[3] for v in epoch_attestation_rewards)
-        sync_penalty = sum(v[4] for v in epoch_attestation_rewards)
-        block_attestations = sum(v[5] for v in epoch_attestation_rewards)
-        block_sync_aggregate = sum(v[6] for v in epoch_attestation_rewards)
-        block_proposer_slashings = sum(v[7] for v in epoch_attestation_rewards)
-        block_attester_slashings = sum(v[8] for v in epoch_attestation_rewards)
-        attestations = sum(1 for v in epoch_attestation_rewards if (v[0] + v[1] + v[2]) >= 0)
-        missed_attestations = len(epoch_attestation_rewards) - attestations
-        total_reward = head + target + source + sync_reward + sync_penalty + block_attestations + \
-            block_sync_aggregate + block_proposer_slashings + block_attester_slashings
-                
-        rewards_penalties.append(
-            {
-                'epoch': epoch,
-                'head': head,
-                'target': target,
-                'source': source,
-                'sync_reward': sync_reward,
-                'sync_penalty': sync_penalty,
-                'block_attestations': block_attestations,
-                'block_sync_aggregate': block_sync_aggregate,
-                'block_proposer_slashings': block_proposer_slashings,
-                'block_attester_slashings': block_attester_slashings,
-                'attestations': attestations,
-                'missed_attestations': missed_attestations,
-                'total_reward': total_reward,
-            }
-        )
+        if len(epoch_attestation_rewards) > 0:
+            head = sum(v[0] for v in epoch_attestation_rewards)
+            target = sum(v[1] for v in epoch_attestation_rewards)
+            source = sum(v[2] for v in epoch_attestation_rewards)
+            sync_reward = sum(v[3] for v in epoch_attestation_rewards)
+            sync_penalty = sum(v[4] for v in epoch_attestation_rewards)
+            block_attestations = sum(v[5] for v in epoch_attestation_rewards)
+            block_sync_aggregate = sum(v[6] for v in epoch_attestation_rewards)
+            block_proposer_slashings = sum(v[7] for v in epoch_attestation_rewards)
+            block_attester_slashings = sum(v[8] for v in epoch_attestation_rewards)
+            attestations = sum(1 for v in epoch_attestation_rewards if (v[0] + v[1] + v[2]) >= 0)
+            missed_attestations = len(epoch_attestation_rewards) - attestations
+            total_reward = head + target + source + sync_reward + sync_penalty + block_attestations + \
+                block_sync_aggregate + block_proposer_slashings + block_attester_slashings
+                    
+            rewards_penalties.append(
+                {
+                    'epoch': epoch,
+                    'head': head,
+                    'target': target,
+                    'source': source,
+                    'sync_reward': sync_reward,
+                    'sync_penalty': sync_penalty,
+                    'block_attestations': block_attestations,
+                    'block_sync_aggregate': block_sync_aggregate,
+                    'block_proposer_slashings': block_proposer_slashings,
+                    'block_attester_slashings': block_attester_slashings,
+                    'attestations': attestations,
+                    'missed_attestations': missed_attestations,
+                    'total_reward': total_reward,
+                }
+            )
 
     return rewards_penalties
 
@@ -571,7 +572,6 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
             execution_reward_sum=Sum('execution_reward'),
             missed_attestations_sum=Sum('missed_attestations'),
             missed_sync_sum=Sum('missed_sync'),
-            validator_count=Count('validator_id'),
             last_slot=F('slot')
         )
         .order_by('date')
@@ -582,6 +582,8 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     except:
         history_last_slot = 0
     
+    active_validator_count = sum(1 for v in cached_validators if v["status"] == "active_ongoing" or v["status"] == "active_exiting" or v["status"] == "active_slashed")
+
     if timezone.now().date() == from_date:
         if len(history) == 0 or (len(history) > 0 and history_last_slot < validator_update_slot):
             total_consensus_balance_sum = sum(v["total_consensus_balance"] for v in cached_validators)
@@ -596,7 +598,6 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                     "execution_reward_sum": execution_reward_sum,
                     "missed_attestations_sum": missed_attestations_sum,
                     "missed_sync_sum": missed_sync_sum,
-                    "validator_count": len(cached_validators)
                 }
             )
 
@@ -607,7 +608,6 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     apy = [{"execution_reward": 0,
             "consensus_reward": 0,
             "total_reward": 0,
-            "entry_count": 0,
             "consensus_apy": 0,
             "execution_apy": 0,
             "apy_sum": 0,
@@ -639,7 +639,6 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                 if entry["date"] < now_date and entry["date"] >= e["diff"]:
                     e["execution_reward"] += float(execution_reward_change / 10**18)
                     e["consensus_reward"] += float(balance_change / 1000000000)
-                    e["entry_count"] += 1
 
         previous_balance = entry["total_consensus_balance_sum"]
         previous_execution_reward = entry["execution_reward_sum"]
@@ -651,11 +650,11 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     for e in apy:
         e["total_reward"] = (e["execution_reward"] + e["consensus_reward"])
         e["apy_sum"] = (e["execution_reward"] + e["consensus_reward"]) / e["days"] * 365
-        e["apy"] = e["apy_sum"] / (len(index_array) * BALANCE_PER_VALIDATOR) * 100
+        e["apy"] = e["apy_sum"] / (active_validator_count * BALANCE_PER_VALIDATOR) * 100 if active_validator_count > 0 else 0
         e["consensus_apy_sum"] = e["consensus_reward"] / e["days"] * 365
         e["execution_apy_sum"] = e["execution_reward"] / e["days"] * 365
-        e["consensus_apy"] = e["consensus_apy_sum"] / (len(index_array) * BALANCE_PER_VALIDATOR) * 100
-        e["execution_apy"] = e["execution_apy_sum"] / (len(index_array) * BALANCE_PER_VALIDATOR) * 100
+        e["consensus_apy"] = e["consensus_apy_sum"] / (active_validator_count * BALANCE_PER_VALIDATOR) * 100 if active_validator_count > 0 else 0
+        e["execution_apy"] = e["execution_apy_sum"] / (active_validator_count * BALANCE_PER_VALIDATOR) * 100 if active_validator_count > 0 else 0
     
     total_rewards["total_reward"] = total_rewards["total_execution_reward"] + total_rewards["total_consensus_reward"]
 

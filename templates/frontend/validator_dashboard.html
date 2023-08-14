@@ -87,13 +87,13 @@
 
 
 
-  {% if validator_count > 0 and pending_validators and dashboard == False %}
+  {% if pending_validators_exist and dashboard == False %}
   <div class="row m-0 mt-2 mx-2 mx-sm-5 mb-2 timeline-area" style="padding: 8px;">
       <div class="container pl-0 pr-0">
         <ul class="timeline">
           
             <li class="timeline">
-              <div class="icon {% if validator_info.status == 'pending_initialized' %}working{% elif validator_info.status != 'unknown' %}done{% endif %}"></div>
+              <div class="icon {% if validator_info.status == 'pending_initialized' or validator_info.status == 'deposited' %}working{% elif validator_info.status != 'unknown' %}done{% endif %}"></div>
               <details class="panel">
                 <summary>
                   <div>
@@ -127,7 +127,7 @@
             </li>
           
             <li class="timeline">
-              <div class="icon {% if validator_info.status == 'pending_queued' %}working{% elif validator_info.status != 'pending_initialized' %}done{% endif %}"></div>
+              <div class="icon {% if validator_info.status == 'pending_queued' %}working{% elif validator_info.status != 'pending_initialized' and validator_info.status != 'deposited' %}done{% endif %}"></div>
               <details class="panel">
                 <summary>
                   <i class="far fa-question-circle question-tooltip"></i>Pending
@@ -184,7 +184,7 @@
 
 
   {% if validator_count > 0 %}
-  {% if not pending_validators or dashboard == True %}
+  {% if not pending_validators_exist or dashboard == True %}
   <div class="row m-0">
     <div class="col-md-8 col-xxxl-9 px-xl-4 px-lg-2 px-md-0 px-sm-6">
       <div class="linechart-element">
@@ -300,7 +300,8 @@
           {% else %}
           :item-count="{{ slots_since_first_online }}" :api-endpoint="'/api/attestations_for_slots'" :slot-range="5"
           {% endif %}
-          :allow-sort="false" :key-prop="'slot'" />
+          :allow-sort="false" :key-prop="'slot'"
+          {% if not dashboard %}:query-parameters="[{validators: '{{ validator_array }}' }]"{% endif %} />
         </div>
       </div>
     </div>
@@ -310,7 +311,8 @@
         <div>
           <table-component :data="blocksJsonData" :columns="blocksTableColumns" :key-prop="'slot_number'"
           :item-count="{{ block_count }}" :api-endpoint="'/api/blocks_by_proposer'" :allow-sort="false"
-          :fetch-strategy="'cursor'" :allow-sort-of="['slot_number', 'block_number', 'total_reward', 'timestamp']" />
+          :fetch-strategy="'cursor'" :allow-sort-of="['slot_number', 'block_number', 'total_reward', 'timestamp']"
+          {% if not dashboard %}:query-parameters="[{validators: '{{ validator_array }}' }]"{% endif %} />
         </div>
       </div>
     </div>
@@ -323,7 +325,8 @@
         <div>
           <table-component :data="withdrawalsJsonData" :columns="withdrawalsTableColumns" :key-prop="'block__slot_number'"
           :item-count="{{ withdrawals_count }}" :api-endpoint="'/api/withdrawals'" :allow-sort="false" :key-prop2="'validator'"
-          :fetch-strategy="'cursor'" />
+          :fetch-strategy="'cursor'"
+          {% if not dashboard %}:query-parameters="[{validators: '{{ validator_array }}' }]"{% endif %} />
         </div>
       </div>
     </div>
@@ -333,7 +336,8 @@
         <div>
           <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
           :key-prop="'slot'" :allow-sort="false" :fetch-strategy="'slot_range'" :api-endpoint="'/api/sync_committee_participation'"
-          :item-count="{{ sync_duty_count }}" />
+          :item-count="{{ sync_duty_count }}"
+          {% if not dashboard %}:query-parameters="[{validators: '{{ validator_array }}' }]"{% endif %} />
         </div>
       </div>
     </div>
@@ -439,13 +443,26 @@
         <div>
           <table-component :data="rewardsPenaltiesJsonData" :columns="rewardsPenaltiesTableColumns" :allow-sort="false" :key-prop="'epoch'"
           :item-count="{{ epoch_rewards_history_distance }}" :api-endpoint="'/api/rewards_and_penalties'"
-          :fetch-strategy="'slot_range'" :fetch-property="'epoch'" />
+          :fetch-strategy="'slot_range'" :fetch-property="'epoch'"
+          {% if not dashboard %}:query-parameters="[{validators: '{{ validator_array }}' }]"{% endif %} />
         </div>
       </div>
     </div>
   </div>
+  {% if pending_validators_exist and dashboard %}
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Pending Validators</div>
+        <div>
+          <table-component :data="pendingValidatorsJsonData" :columns="pendingValidatorsTableColumns" :key-prop="'public_key'" :allow-sort="true" />
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   <div class='element-header social'></div>
-  {% else %}
+  {% elif total_monitored_count == 0 %}
 
   <div class="text-center">
     <div>
@@ -472,7 +489,7 @@
 {% block script %}
 {% include 'frontend/vue_table.html' %}
 
-{% if validator_count > 0 and pending_validators and dashboard == False %}
+{% if validator_count > 0 and pending_validators_exist and dashboard == False %}
 <script>
   var countdownSeconds = {{ validator_info.seconds_till_activation }};
   
@@ -894,6 +911,55 @@
             },
           },
         ],
+        pendingValidatorsJsonData: [],
+        pendingValidatorsTableColumns: [
+          { key: 'public_key', label: 'Public Key',
+            renderFunction: (value, item) => {
+              return elideString(value)
+            },
+            link: (value, item) => {
+              return '/validator/' + value;
+            },
+          },
+          { key: 'validator_id', label: 'Validator ID',
+            link: (value, item) => {
+              return '/validator/' + item.public_key;
+            },
+          },
+          { key: 'status', label: 'Status',
+            renderClass: (value, item) => {
+              return {
+                'font-weight-bold': item.new === true,
+              };
+            },
+          },
+          { key: 'balance', label: 'Deposited',
+            renderFunction: (value, item) => {
+              return "+" + value.toFixed(2) + " {{ currency_name }}";
+            },
+          },
+          { key: 'w_cred', label: 'Withdrawal Cred.',
+            renderFunction: (value, item) => {
+              if(value === "pending")
+                return value
+              return elideString(value)
+            },
+          },
+          { key: 'activation_epoch_estimate', label: 'Activation Epoch',
+            renderFunction: (value, item) => {
+              return formatNumber(value)
+            },
+          },
+          { key: 'seconds_till_activation', label: 'Activation Time',
+            renderFunction: (value, item) => {
+              if(value === "pending")
+                return value
+              
+              let countDownDate = new Date().getTime() + (value * 1000);
+              return calculateTimeDifference(countDownDate)
+            },
+          },
+        ],
 
       };
     },
@@ -904,6 +970,7 @@
       this.blocksJsonData = JSON.parse('[]');
       this.withdrawalsJsonData = JSON.parse('[]');
       this.rewardsPenaltiesJsonData = JSON.parse('[]');
+      this.pendingValidatorsJsonData = JSON.parse('{{ pending_validators_info|safe }}');
       this.dashboardSyncCommitteeParticipationsJsonData = JSON.parse('[]');
       this.validatorOverviewJsonData = [...this.validatorAddJsonData];
       {% endif %}
@@ -1037,31 +1104,16 @@ var lineChart = new Chart(ctx, {
     scales: {
       x: {
         stacked: true,
-        //title: {
-        //  display: true,
-        //  text: 'Time (UTC)'
-        //}
       },
       y: {
         stacked: true,
-        //title: {
-        //  display: true,
-        //  text: 'Reward'
-        //}
       },
       y2: {
         type: 'linear',
         position: 'right',
-        ticks: {
-          //color: "rgb(63, 152, 155)"
-        },
         grid: {
           drawOnChartArea: false
         },
-        //title: {
-        //  display: true,
-        //  text: 'Missed Attestations'
-        //}
       }
     }
   }

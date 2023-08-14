@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from blockfetcher.models import Validator, Block, Epoch, SyncCommittee
+from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit
 import time
 from django.core.cache import cache
 from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, VALIDATOR_MONITORING_LIMIT, GENESIS_TIMESTAMP
@@ -15,6 +15,8 @@ from api.views import get_chart_data_daily_rewards
 from django.db.models.functions import TruncHour
 import statistics
 from api.util import calculate_activation_epoch, measure_execution_time
+import re
+from itertools import groupby
 
 
 def calc_time_of_slot(slot):
@@ -42,7 +44,11 @@ def print_time(start_time, pos):
     print(time.time() - start_time)
 
 
+@measure_execution_time
 def get_slots_since_first_online(validators, current_slot):
+    if len(validators) <= 0:
+        return 0
+    
     first_validator_online_epoch = validators[0]["activation_epoch"]
     for v in validators:
         if v["activation_epoch"] < first_validator_online_epoch:
@@ -54,12 +60,15 @@ def get_slots_since_first_online(validators, current_slot):
     return slots_since_first_online
 
 
+@measure_execution_time
 def get_sync_attestation_dashboard_info(cached_validators, index_array, current_slot, current_epoch, validator_update_slot, validator_dict):
     total_attestations = 0
     sync_participation_count = 0
     try:
         for v in cached_validators:
-            total_attestations += (current_epoch if v["e_epoch"] > current_epoch else v["e_epoch"]) - validator_dict.get(v["validator_id"])["activation_epoch"]
+            attestation_count = (current_epoch if v["e_epoch"] > current_epoch else v["e_epoch"]) - validator_dict.get(v["validator_id"])["activation_epoch"]
+            if attestation_count > 0:
+                total_attestations += attestation_count
             sync_participation_count += v["sync_p_count"]
     except:
         pass
@@ -108,67 +117,110 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
     return sync_duty_count, sync_participation_count, active_sync_validators, next_sync_validators, total_attestations
 
 
-def view_validator(request, index, dashboard=False):
-    start_time = time.time()
+@measure_execution_time
+def split_validator_ids(request, index):
+    index_array = index.split(',')
 
-    index_array = [int(pk) for pk in index.split(',')]
     if len(index_array) > VALIDATOR_MONITORING_LIMIT:
         index_array[:VALIDATOR_MONITORING_LIMIT]
-    
-    cached_validators = get_validators_from_cache(index_array)
 
-    validator_update_slot = get_validator_update_slot_from_cache()
-    current_epoch = get_current_epoch_from_cache()
-    current_slot = get_current_slot_from_cache()
+    validator_ids = set()
+    public_keys = set()
 
-    validators = Validator.objects.filter(validator_id__in=index_array).values("public_key", "activation_epoch", "validator_id")
-    validator_dict = {v["validator_id"]: v for v in validators}
+    public_keys_pattern = re.compile(r'^(0x)?[0-9a-fA-F]{96}$')
 
-    if dashboard == False:
-        if len(validators) > 1:
-            dashboard = True
+    for item in index_array:
+        if item.isdigit():
+            validator_ids.add(int(item))
+        elif public_keys_pattern.match(item):
+            public_keys.add(item)
         else:
-            try:
-                active_validators_count = get_active_validators_count_from_cache()
-                validators_per_epoch = int(active_validators_count / CHURN_LIMIT_QUOTIENT)
-                validator_update_epoch = int(get_validator_update_slot_from_cache() / SLOTS_PER_EPOCH)
-
-                cached_validator = cached_validators[0]
-                validator = Validator.objects.filter(validator_id__in=index_array).first()
-                if int(cached_validator["pre_val"]) == -1:
-                    activation_epoch_estimate = 0
-                    seconds_till_activation = 0
-                else:
-                    activation_epoch_estimate = calculate_activation_epoch(int(cached_validator["pre_val"]) ,validator_update_epoch, validators_per_epoch, cached_validator["status"], validator.activation_epoch)
-                    seconds_till_activation = ((activation_epoch_estimate * SLOTS_PER_EPOCH) - current_slot) * SECONDS_PER_SLOT
-                validator_info = {
-                            "public_key": str(validator.public_key),
-                            "validator_id": int(validator.validator_id),
-                            "w_cred": str(validator.withdrawal_credentials),
-                            "w_cred_type": str(validator.withdrawal_credentials)[:26],
-                            "w_cred_address": str(validator.withdrawal_credentials)[26:],
-                            "balance": float(cached_validator["balance"] / 10**9),
-                            "status": str(cached_validator["status"]),
-                            "e_epoch": int(cached_validator["e_epoch"]),
-                            "w_epoch": int(cached_validator["w_epoch"]),
-                            "activation_eligibility_epoch": int(validator.activation_eligibility_epoch),
-                            "activation_epoch": int(validator.activation_epoch),
-                            "activation_epoch_estimate": activation_epoch_estimate,
-                            "seconds_till_activation": seconds_till_activation if seconds_till_activation > 0 else 0,
-                            "pre_val": int(cached_validator["pre_val"]),
-                            "validators_per_epoch": validators_per_epoch,
-                            "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
-                            "staking_deposits": validator.stakingdeposit_set.all(),
-                            }
-            except:
-                validator_info = {}
-    else:
-        validator_info = {}
+            print(f"Skipping invalid public key: {item}")
     
-    print_time(start_time, "pos4.4")
-    chart_data, apy, total_rewards = get_chart_data_daily_rewards(index_array, timezone.now().date(), 45, cached_validators, validator_update_slot)
-    print_time(start_time, "pos5")
+    validators = Validator.objects.filter(public_key__in=public_keys).values("public_key", "validator_id")
 
+    for validator in validators:
+        public_key = validator["public_key"]
+        validator_id = validator["validator_id"]
+        public_keys.remove(public_key)
+        validator_ids.add(validator_id)
+
+    if request.user.is_authenticated and len(validators) > 0:
+        #request.user.profile.watched_validators = 
+        combined = ','.join(str(x) for x in validator_ids) + ','.join(str(x) for x in public_keys)
+        print(combined)
+
+    return len(index_array), list(validator_ids), list([key[2:] if key.startswith("0x") else key for key in public_keys])
+
+
+def get_validator_info(validator, cached_validator, validators_per_epoch, active_validators_count, validator_update_epoch, current_slot, add_staking_deposits=True):
+    if int(cached_validator["pre_val"]) == -1:
+        activation_epoch_estimate = 0
+        seconds_till_activation = 0
+    else:
+        activation_epoch_estimate = calculate_activation_epoch(int(cached_validator["pre_val"]) ,validator_update_epoch, validators_per_epoch, cached_validator["status"], validator["activation_epoch"])
+        seconds_till_activation = ((activation_epoch_estimate * SLOTS_PER_EPOCH) - current_slot) * SECONDS_PER_SLOT
+    
+    if add_staking_deposits:
+        staking_deposits = Validator.objects.filter(validator_id=int(validator["validator_id"])).first().stakingdeposit_set.all()
+    else:
+        staking_deposits = []
+    
+    validator_info = {
+                "public_key": str(validator["public_key"]),
+                "validator_id": int(validator["validator_id"]),
+                "w_cred": str(validator["withdrawal_credentials"]),
+                "w_cred_type": str(validator["withdrawal_credentials"])[:26],
+                "w_cred_address": str(validator["withdrawal_credentials"])[26:],
+                "balance": float(cached_validator["balance"] / 10**9),
+                "status": str(cached_validator["status"]),
+                "e_epoch": int(cached_validator["e_epoch"]),
+                "w_epoch": int(cached_validator["w_epoch"]),
+                "activation_eligibility_epoch": int(validator["activation_eligibility_epoch"]),
+                "activation_epoch": int(validator["activation_epoch"]),
+                "activation_epoch_estimate": activation_epoch_estimate,
+                "seconds_till_activation": seconds_till_activation if seconds_till_activation > 0 else 0,
+                "pre_val": int(cached_validator["pre_val"]),
+                "validators_per_epoch": validators_per_epoch,
+                "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
+                "staking_deposits": staking_deposits,
+                }
+
+    return validator_info
+
+
+def get_validator_info_from_deposit(deposits, validators_per_epoch, active_validators_count, add_staking_deposits=True):
+    balance = 0
+    for d in deposits:
+        public_key = d.public_key
+        withdrawal_credentials = d.withdrawal_credentials
+        balance += d.amount
+
+    validator_info = {
+                "public_key": public_key,
+                "validator_id": "pending",
+                "w_cred": withdrawal_credentials,
+                "w_cred_type": withdrawal_credentials[:26],
+                "w_cred_address": withdrawal_credentials[26:],
+                "balance": float(balance / 10**9),
+                "status": "deposited",
+                "e_epoch": "pending",
+                "w_epoch": "pending",
+                "activation_eligibility_epoch": "pending",
+                "activation_epoch": "pending",
+                "activation_epoch_estimate": "pending",
+                "seconds_till_activation": "pending",
+                "pre_val": "pending",
+                "validators_per_epoch": validators_per_epoch,
+                "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
+                "staking_deposits": deposits if add_staking_deposits else [],
+                }
+
+    return validator_info
+
+
+@measure_execution_time
+def get_efficiency_and_dashboard_head_info(cached_validators):
     dashboard_head_data = {"active_validators":0, "queued_validators":0, "exited_validators":0}
     efficiency_sum = 0
     count_efficiency = 0
@@ -182,17 +234,61 @@ def view_validator(request, index, dashboard=False):
         elif cv["status"] == "exited_unslashed" or cv["status"] == "exited_slashed" or cv["status"] == "withdrawal_possible" or cv["status"] == "withdrawal_done":
             dashboard_head_data["exited_validators"] += 1
     efficiency = (efficiency_sum / count_efficiency) if count_efficiency > 0 else 0
+
+    return dashboard_head_data, efficiency
+
+
+@measure_execution_time
+def view_validator(request, index, dashboard=False):
+    validators_monitored_count, validator_ids, public_keys = split_validator_ids(request, index)
     
-    print_time(start_time, "pos8.1")
+    cached_validators = get_validators_from_cache(validator_ids)
+
+    validator_update_slot = get_validator_update_slot_from_cache()
+    current_epoch = get_current_epoch_from_cache()
+    current_slot = get_current_slot_from_cache()
+    active_validators_count = get_active_validators_count_from_cache()
+    validators_per_epoch = int(active_validators_count / CHURN_LIMIT_QUOTIENT)
+    validator_update_epoch = int(get_validator_update_slot_from_cache() / SLOTS_PER_EPOCH)
+
+    validators = Validator.objects.filter(validator_id__in=validator_ids)\
+        .values("public_key", "activation_epoch", "validator_id", "withdrawal_credentials", "activation_eligibility_epoch")
+    validator_dict = {v["validator_id"]: v for v in validators}
+
+    print(validator_dict.values())
+
+    deposits = StakingDeposit.objects.filter(public_key__in=public_keys)
+    deposits_grouped = {}
+    for key, group in groupby(deposits, key=lambda x: x.public_key):
+        deposits_grouped[key] = list(group)
+    
+    pending_validators_info = []
+    for dg in deposits_grouped.values():
+        pending_validators_info.append(get_validator_info_from_deposit(dg, validators_per_epoch, active_validators_count, add_staking_deposits=False))
+
+    if dashboard == False:
+        if validators_monitored_count > 1:
+            dashboard = True
+            validator_info = {}
+        else:
+            if len(validators) >= 1:
+                validator_info = get_validator_info(validators[0], cached_validators[0], validators_per_epoch, active_validators_count, validator_update_epoch, current_slot)
+            else:
+                deposits = StakingDeposit.objects.filter(public_key=public_keys[0]).order_by('index')
+
+                validator_info = get_validator_info_from_deposit(deposits, validators_per_epoch, active_validators_count)
+    else:
+        validator_info = {}
+    
+    chart_data, apy, total_rewards = get_chart_data_daily_rewards(validator_ids, timezone.now().date(), 45, cached_validators, validator_update_slot)
+
+    dashboard_head_data, efficiency = get_efficiency_and_dashboard_head_info(cached_validators)
 
     sync_duty_count, sync_participation_count, active_sync_validators, next_sync_validators, total_attestations = \
-        get_sync_attestation_dashboard_info(cached_validators, index_array, current_slot, current_epoch, validator_update_slot, validator_dict)
-
-    print_time(start_time, "pos8.2")
+        get_sync_attestation_dashboard_info(cached_validators, validator_ids, current_slot, current_epoch, validator_update_slot, validator_dict)
 
     slots_since_first_online = get_slots_since_first_online(validators, current_slot)
 
-    pending_validators = False
     validator_overview = []
     missed_sync_committee_duties = 0
     proposed_blocks_count = 0
@@ -202,7 +298,7 @@ def view_validator(request, index, dashboard=False):
     withdrawals_count = 0
     for c in cached_validators:
         if c["status"] == "pending_queued" or c["status"] == "pending_initialized":
-            pending_validators = True
+            pending_validators_info.append(get_validator_info(validator_dict[c["validator_id"]], c, validators_per_epoch, active_validators_count, validator_update_epoch, current_slot, add_staking_deposits=False))
         else:
             missed_sync_committee_duties += int(c["missed_sync_total"])
             missed_sync_committee_duties += int(c["missed_sync"])
@@ -225,13 +321,12 @@ def view_validator(request, index, dashboard=False):
     average_execution_reward = total_rewards["total_execution_reward"] / after_merge_blocks_count if after_merge_blocks_count > 0 else 0
     highest_execution_reward /= 10**18
 
-    print_time(start_time, "pos8.3")
-
     sync_duty_completed_count = sync_duty_count - missed_sync_committee_duties
 
     context = {
         'dashboard': dashboard,
-        'validator_count': len(index_array),
+        'validator_count': len(validator_ids),
+        'total_monitored_count': len(validator_ids) + len(public_keys),
         'efficiency': round_to_one_decimal_place(efficiency),
         'efficiency_lag': 100 - efficiency,
         'chart_data': json.dumps(chart_data),
@@ -254,15 +349,14 @@ def view_validator(request, index, dashboard=False):
         'active_sync_validators': active_sync_validators,
         'next_sync_validators': next_sync_validators,
         'validator_overview': json.dumps(list(validator_overview)),
-        'pending_validators': pending_validators,
+        'pending_validators_exist': True if len(pending_validators_info) > 0 else False,
+        'pending_validators_info': json.dumps(pending_validators_info),
         'dashboard_head_data': dashboard_head_data,
-        'validator_array': ','.join(map(str, index_array)),
+        'validator_array': ','.join(map(str, validator_ids)),
         'validator_info': validator_info,
         'slots_since_first_online': slots_since_first_online,
     }
     view = render(request, 'frontend/validator_dashboard.html', context)
-
-    print(time.time() - start_time)
 
     return view
 
@@ -449,12 +543,12 @@ def search_validator_results(request):
 @measure_execution_time
 def dashboard_empty(request):
     if request.user.is_authenticated:
-        try:
+        #try:
             validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
             if len(validator_array) > 0:
                 return view_validator(request, ','.join(str(x) for x in validator_array), True)
-        except:
-            pass
+        #except:
+        #    pass
 
     context = {
         'dashboard': True,
