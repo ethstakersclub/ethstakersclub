@@ -2,13 +2,13 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, SyncCommittee
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, BEACON_API_ENDPOINT, GENESIS_TIMESTAMP, VALIDATOR_MONITORING_LIMIT
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Sum, Count, F
 from blockfetcher.cache import *
 from django.db import connection, models
-from api.util import calculate_activation_epoch, measure_execution_time
+from api.util import calculate_activation_epoch, measure_execution_time, get_validator_limit
 
 
 def get_blocks(request):
@@ -139,7 +139,7 @@ def extract_validator_ids(request):
 
     unique_validators_array = list(set(validator_ids))
 
-    if len(unique_validators_array) > VALIDATOR_MONITORING_LIMIT:
+    if len(unique_validators_array) > get_validator_limit(request):
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Too many validators added.'})
     elif len(unique_validators_array) <= 0:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'No validator ids provided'})

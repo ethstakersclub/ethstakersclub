@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, VALIDATOR_MONITORING_LIMIT, GENESIS_TIMESTAMP
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP
 import json
 from django.utils import timezone
 import datetime
@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 from api.views import get_chart_data_daily_rewards
 from django.db.models.functions import TruncHour
 import statistics
-from api.util import calculate_activation_epoch, measure_execution_time
+from api.util import calculate_activation_epoch, measure_execution_time, get_validator_limit
 import re
 from itertools import groupby
 
@@ -121,8 +121,9 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
 def split_validator_ids(index, request=None):
     index_array = index.split(',')
 
-    if len(index_array) > VALIDATOR_MONITORING_LIMIT:
-        index_array[:VALIDATOR_MONITORING_LIMIT]
+    validator_monitoring_limit = get_validator_limit(request)
+    if len(index_array) > validator_monitoring_limit:
+        index_array[:validator_monitoring_limit]
 
     validator_ids = set()
     public_keys = set()

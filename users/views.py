@@ -1,10 +1,8 @@
 from django.shortcuts import render, redirect
 from users.forms import RegistrationForm
-from users.models import CustomUser
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from .models import Profile
-from ethstakersclub.settings import VALIDATOR_MONITORING_LIMIT
+from api.util import get_validator_limit
 import json
 import re
 
@@ -29,7 +27,7 @@ def save_watched_validators(request):
         data = json.loads(request.body)
         validator_ids = data.get('validator_ids', [])
 
-        if len(validator_ids) > VALIDATOR_MONITORING_LIMIT:
+        if len(validator_ids) > get_validator_limit(request):
             return JsonResponse({'status': 'error', 'message': 'Too many validators added.'})
 
         public_keys_pattern = re.compile(r'^(0x)?[0-9a-fA-F]{96}$')
