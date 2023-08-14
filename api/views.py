@@ -122,7 +122,7 @@ def extract_validator_ids(request):
     if not validator_ids:
         if request.user.is_authenticated:
             try:
-                validator_ids = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
+                validator_ids = [int(pk) for pk in request.user.profile.watched_validators.split(',') if pk.isdigit()]
             except:
                 return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid validator ID provided.'})
         else:

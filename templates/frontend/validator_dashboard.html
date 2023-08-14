@@ -15,7 +15,7 @@
         </div>
         <ul id="results-validator-add-area" class="search-result-area" role="listbox" hidden=""></ul>
         <table-component :data="validatorAddJsonData" :columns="validatorAddTableColumns" :emptytext="'Search for a validator, then click on it to add it.'"
-        :emptyimage="'{% static 'img/pug2.png' %}'" :key-prop="'validator_id'" :allow-sort="false" />
+        :emptyimage="'{% static 'img/pug2.png' %}'" :key-prop="'public_key'" :allow-sort="false" />
       </div>
       <div class="modal-footer">
         <p style="
@@ -348,7 +348,7 @@
         {% if dashboard %}
         <div class="element-header">Validator Overview</div>
         <div>
-          <table-component :data="validatorOverviewJsonData" :columns="validatorOverviewTableColumns" :key-prop="'validator_id'" :allow-sort="true" />
+          <table-component :data="validatorOverviewJsonData" :columns="validatorOverviewTableColumns" :key-prop="'public_key'" :allow-sort="true" />
         </div>
         {% else %}
         <div class="element-header">Validator Overview</div>
@@ -896,12 +896,12 @@
               return "";
             },
             onClickFunction: (value, item) => {
-              const index = this.validatorAddJsonData.findIndex(_item => _item.validator_id === item.validator_id);
+              const index = this.validatorAddJsonData.findIndex(_item => _item.public_key === item.public_key);
               if (index !== -1) {
                 this.validatorAddJsonData.splice(index, 1);
-                console.log("Element removed from the array:", item.validator_id);
+                console.log("Element removed from the array:", item.public_key);
               } else {
-                console.log("Element not found in the array:", item.validator_id);
+                console.log("Element not found in the array:", item.public_key);
               }
             },
             renderClass: (value, item) => {
@@ -980,11 +980,11 @@
     },
     methods: {
       addValidatorAddData(data) {
-        if (!this.validatorAddJsonData.some(item => item.validator_id === data.validator_id)) {
+        if (!this.validatorAddJsonData.some(item => item.public_key === data.public_key)) {
           this.validatorAddJsonData.unshift(data);
-          console.log("Element added to the array:", data.validator_id);
+          console.log("Element added to the array:", data.public_key);
         } else {
-          console.log("Element already exists in the array:", data.validator_id);
+          console.log("Element already exists in the array:", data.public_key);
         }
       },
       getValidatorAddData() {
@@ -1286,12 +1286,12 @@ var efficiencyChart = new Chart(ctx, {
   });
 
   function submitValidator(){
-    console.log(root.getValidatorAddData().map(item => item.validator_id))
+    console.log(root.getValidatorAddData().map(item => item.validator_id === "pending" ? item.public_key : item.validator_id))
     axios({
       url: "{% url 'save_watched_validators' %}",
       method: 'post',
       data: {
-          validator_ids: root.getValidatorAddData().map(item => item.validator_id),
+          validator_ids: root.getValidatorAddData().map(item => item.validator_id === "pending" ? item.public_key : item.validator_id),
       },
       dataType: 'json',
       contentType: "application/json",

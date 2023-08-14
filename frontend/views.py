@@ -6,7 +6,7 @@ from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECON
 import json
 from django.utils import timezone
 import datetime
-from django.db.models import Avg
+from django.db.models import Avg, Value
 from django.utils.timesince import timesince, timeuntil
 from django.http import JsonResponse
 from blockfetcher.cache import *
@@ -118,7 +118,7 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
 
 
 @measure_execution_time
-def split_validator_ids(request, index):
+def split_validator_ids(index, request=None):
     index_array = index.split(',')
 
     if len(index_array) > VALIDATOR_MONITORING_LIMIT:
@@ -144,11 +144,12 @@ def split_validator_ids(request, index):
         validator_id = validator["validator_id"]
         public_keys.remove(public_key)
         validator_ids.add(validator_id)
-
-    if request.user.is_authenticated and len(validators) > 0:
-        #request.user.profile.watched_validators = 
-        combined = ','.join(str(x) for x in validator_ids) + ','.join(str(x) for x in public_keys)
-        print(combined)
+    
+    if request is not None:
+        if request.user.is_authenticated and len(validators) > 0:
+            #request.user.profile.watched_validators = 
+            combined = ','.join(str(x) for x in validator_ids) + ','.join(str(x) for x in public_keys)
+            print(combined)
 
     return len(index_array), list(validator_ids), list([key[2:] if key.startswith("0x") else key for key in public_keys])
 
@@ -240,7 +241,7 @@ def get_efficiency_and_dashboard_head_info(cached_validators):
 
 @measure_execution_time
 def view_validator(request, index, dashboard=False):
-    validators_monitored_count, validator_ids, public_keys = split_validator_ids(request, index)
+    validators_monitored_count, validator_ids, public_keys = split_validator_ids(index, request)
     
     cached_validators = get_validators_from_cache(validator_ids)
 
@@ -283,6 +284,7 @@ def view_validator(request, index, dashboard=False):
     chart_data, apy, total_rewards = get_chart_data_daily_rewards(validator_ids, timezone.now().date(), 45, cached_validators, validator_update_slot)
 
     dashboard_head_data, efficiency = get_efficiency_and_dashboard_head_info(cached_validators)
+    dashboard_head_data["queued_validators"] += len(public_keys)
 
     sync_duty_count, sync_participation_count, active_sync_validators, next_sync_validators, total_attestations = \
         get_sync_attestation_dashboard_info(cached_validators, validator_ids, current_slot, current_epoch, validator_update_slot, validator_dict)
@@ -505,37 +507,39 @@ def search_results(request):
 @measure_execution_time
 def search_validator_results(request):
     query_list = request.GET.get('query').split(',')
-
-    if len(query_list) > 250:
-        return JsonResponse({'success': False})
     
-    if len(query_list) <= 1:
-        for query in query_list:
-            if query.startswith('0x') and len(query) > 5:
-                validators = Validator.objects.filter(public_key__startswith=query)[:10].values("public_key", "validator_id")
-            elif query.isdigit():
-                validators = Validator.objects.filter(validator_id=int(query))[:10].values("public_key", "validator_id")
+    validators = []
+    if len(query_list) == 1:
+        if query_list[0].startswith('0x') and len(query_list[0]) > 5:
+            validators = Validator.objects.filter(public_key__startswith=query_list[0])[:10].values("public_key", "validator_id")
+
+            if len(validators) == 0:
+                print(12212)
+                validators = StakingDeposit.objects.filter(public_key__startswith=query_list[0][2:])[:10].values("public_key", "validator_id")
+                print(validators)
+        elif query_list[0].isdigit():
+            validators = Validator.objects.filter(validator_id=int(query_list[0]))[:10].values("public_key", "validator_id")
     else:
-        public_key_query = []
-        validator_id_query = []
+        validators_count, validator_ids, public_keys = split_validator_ids(request.GET.get('query'))
         validators = []
-        for query in query_list:
-            if query.startswith('0x') and len(query) > 5:
-                public_key_query.append(query)
-            elif query.isdigit():
-                validator_id_query.append(int(query))
-        if len(public_key_query) > 0:
-            validators += Validator.objects.filter(public_key__in=public_key_query).values("public_key", "validator_id")
-        if len(validator_id_query) > 0:
-            validators += Validator.objects.filter(validator_id__in=validator_id_query).values("public_key", "validator_id")
+
+        if len(public_keys) > 0:
+            validators += StakingDeposit.objects.filter(public_key__in=public_keys).values("public_key", "validator_id")
+        if len(validator_ids) > 0:
+            validators += Validator.objects.filter(validator_id__in=validator_ids).values("public_key", "validator_id")
 
     
     results = []
     for v in validators:
-        cached_validator = get_validator_from_cache(v["validator_id"])
-        results.append({'text': "(" + str(v["validator_id"]) + ") " + v["public_key"], 'validator_id': v["validator_id"], 'public_key': v["public_key"],
-                        'status': cached_validator['status'] if 'status' in cached_validator else "unknown",
-                        'new': True})
+        if v["validator_id"] != None:
+            cached_validator = get_validator_from_cache(v["validator_id"])
+            results.append({'text': "(" + str(v["validator_id"]) + ") " + v["public_key"], 'validator_id': v["validator_id"], 'public_key': v["public_key"],
+                            'status': cached_validator['status'] if 'status' in cached_validator else "unknown",
+                            'new': True})
+        else:
+            results.append({'text': "(pending) " + v["public_key"], 'validator_id': 'pending', 'public_key': v["public_key"],
+                            'status': "deposited",
+                            'new': True})
     
     return JsonResponse({'results': results, 'array': len(query_list) > 1})
 
@@ -544,7 +548,7 @@ def search_validator_results(request):
 def dashboard_empty(request):
     if request.user.is_authenticated:
         #try:
-            validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
+            validator_array = [pk for pk in request.user.profile.watched_validators.split(',')]
             if len(validator_array) > 0:
                 return view_validator(request, ','.join(str(x) for x in validator_array), True)
         #except:
@@ -564,7 +568,7 @@ def dashboard_empty(request):
 @measure_execution_time
 def attestation_live_monitoring_empty(request):
     if request.user.is_authenticated:
-        validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
+        validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',') if pk.isdigit()]
         if len(validator_array) > 0:
             return attestation_live_monitoring(request, ','.join(str(x) for x in validator_array))
 
@@ -579,7 +583,7 @@ def attestation_live_monitoring_empty(request):
 @measure_execution_time
 def sync_live_monitoring_empty(request):
     if request.user.is_authenticated:
-        validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',')]
+        validator_array = [int(pk) for pk in request.user.profile.watched_validators.split(',') if pk.isdigit()]
         if len(validator_array) > 0:
             return sync_live_monitoring(request, ','.join(str(x) for x in validator_array))
 
