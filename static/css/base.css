@@ -1141,3 +1141,7 @@ h4 {
   color: rgb(164 171 207) !important;
   border-bottom: none !important;
 }
+
+#validator-add-input {
+  background-color: #1e2940;
+}

@@ -246,11 +246,9 @@ def get_efficiency_and_dashboard_head_info(cached_validators):
 
 @measure_execution_time
 def view_validator(request, index, dashboard=False):
-    print(122121)
     validators_monitored_count, validator_ids, public_keys = split_validator_ids(index, request)
     
     cached_validators = get_validators_from_cache(validator_ids)
-    print(cached_validators)
 
     validator_update_slot = get_validator_update_slot_from_cache()
     current_epoch = get_current_epoch_from_cache()
@@ -512,15 +510,30 @@ def search_results(request):
 
 @measure_execution_time
 def search_validator_results(request):
+    validator_monitoring_limit = get_validator_limit(request)
+
     query_list = request.GET.get('query').split(',')
+    query_list = query_list[:validator_monitoring_limit]
+
+    combined_array = len(query_list) > 1
     
     validators = []
     if len(query_list) == 1:
-        if query_list[0].startswith('0x') and len(query_list[0]) > 5:
+        public_keys_pattern = re.compile(r'^(0x)?[0-9a-fA-F]{96}$')
+        execution_public_keys_pattern = re.compile(r'^(0x)?[0-9a-fA-F]{40}$')
+
+        if public_keys_pattern.match(query_list[0]):
             validators = Validator.objects.filter(public_key__startswith=query_list[0])[:10].values("public_key", "validator_id")
 
             if len(validators) == 0:
                 validators = StakingDeposit.objects.filter(public_key__startswith=query_list[0][2:])[:10].values("public_key", "validator_id")
+        elif execution_public_keys_pattern.match(query_list[0]):
+            combined_array = True
+            address = query_list[0][2:] if query_list[0][:2] == "0x" else query_list[0]
+            address = "0x010000000000000000000000" + address.lower()
+
+            validators = list(Validator.objects.filter(withdrawal_credentials=address)[:validator_monitoring_limit].values("public_key", "validator_id"))
+            validators += list(StakingDeposit.objects.filter(withdrawal_credentials=address[2:], validator=None)[:validator_monitoring_limit].values("public_key", "validator_id"))
         elif query_list[0].isdigit():
             validators = Validator.objects.filter(validator_id=int(query_list[0]))[:10].values("public_key", "validator_id")
     else:
@@ -545,7 +558,7 @@ def search_validator_results(request):
                             'status': "deposited",
                             'new': True})
     
-    return JsonResponse({'results': results, 'array': len(query_list) > 1})
+    return JsonResponse({'results': results, 'array': combined_array})
 
 
 @measure_execution_time

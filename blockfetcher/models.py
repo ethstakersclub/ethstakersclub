@@ -32,7 +32,7 @@ class Validator(models.Model):
     public_key = models.CharField(max_length=98, unique=True, db_index=True)
 
     # Validator withdrawal credentials
-    withdrawal_credentials = models.CharField(max_length=66)
+    withdrawal_credentials = models.CharField(max_length=66, db_index=True)
 
     # Validator withdrawal address type - 0 or 1
     withdrawal_type = models.IntegerField(default=0)
@@ -195,7 +195,7 @@ class StakingDeposit(models.Model):
     block_number = models.IntegerField()
     amount = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     public_key = models.CharField(max_length=98, db_index=True)
-    withdrawal_credentials = models.CharField(max_length=66)
+    withdrawal_credentials = models.CharField(max_length=66, db_index=True)
     signature = models.CharField(max_length=194)
     transaction_index = models.IntegerField()
     transaction_hash = models.CharField(max_length=66)
