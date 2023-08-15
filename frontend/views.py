@@ -123,7 +123,7 @@ def get_sync_attestation_dashboard_info(cached_validators, index_array, current_
 
 @measure_execution_time
 def split_validator_ids(index, request=None):
-    index_array = index.split(',')
+    index_array = index.replace(" ", "").split(',')
 
     validator_monitoring_limit = get_validator_limit(request)
     if len(index_array) > validator_monitoring_limit:
