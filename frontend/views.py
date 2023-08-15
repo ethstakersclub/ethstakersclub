@@ -57,19 +57,17 @@ def get_slots_since_first_online(validators, current_slot):
 
 def get_attestation_count(cached_validators, validator_dict, current_epoch):
     total_attestations = 0
-    sync_participation_count = 0
     try:
         for v in cached_validators:
             attestation_count = (current_epoch if v["e_epoch"] > current_epoch else v["e_epoch"]) - validator_dict.get(v["validator_id"])["activation_epoch"]
             if attestation_count > 0:
                 total_attestations += attestation_count
-            sync_participation_count += v["sync_p_count"]
     except:
         pass
     if total_attestations < 0:
         total_attestations = 0
 
-    return int(total_attestations), int(sync_participation_count)
+    return int(total_attestations)
 
 
 @measure_execution_time
@@ -248,9 +246,11 @@ def get_efficiency_and_dashboard_head_info(cached_validators):
 
 @measure_execution_time
 def view_validator(request, index, dashboard=False):
+    print(122121)
     validators_monitored_count, validator_ids, public_keys = split_validator_ids(index, request)
     
     cached_validators = get_validators_from_cache(validator_ids)
+    print(cached_validators)
 
     validator_update_slot = get_validator_update_slot_from_cache()
     current_epoch = get_current_epoch_from_cache()
@@ -561,6 +561,7 @@ def dashboard_empty(request):
     context = {
         'dashboard': True,
         'validator_count': 0,
+        'total_monitored_count': 0,
         'dashboard_head_data': {"active_validators":0, "queued_validators":0, "exited_validators":0},
         'validator_overview': json.dumps(list([])),
     }
@@ -611,7 +612,7 @@ def attestation_live_monitoring(request, index):
     validators = Validator.objects.filter(validator_id__in=validator_array).values("public_key", "activation_epoch", "validator_id")
     validator_dict = {v["validator_id"]: v for v in validators}
 
-    total_attestations = get_attestation_count(cached_validators, validator_dict, current_epoch)[0]
+    total_attestations = get_attestation_count(cached_validators, validator_dict, current_epoch)
 
     current_slot = get_current_slot_from_cache()
     slots_since_first_online = get_slots_since_first_online(validators, current_slot)

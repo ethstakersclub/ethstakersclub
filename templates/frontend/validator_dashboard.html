@@ -561,14 +561,15 @@
             },
             { key: 'status', label: 'Status',
               renderFunction: (value, item) => {
-                return item.distance == 255 ? calculateTimeDifferenceSeconds(item.block_timestamp) > 200 ? 'Missed' : 'Scheduled' : 'Attested'
+                const slotDifference = currentSlot - item.slot;
+                return item.distance == 255 ? slotDifference > 16 ? 'Missed' : 'Scheduled' : 'Attested'
               },
               renderClass: (value, item) => {
-                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                const slotDifference = currentSlot - item.slot;
                 return {
                   'status-label rounded-pill px-2 text-nowrap': true,
-                  'bg-danger': item.distance === 255 && timeDifference > 200,
-                  'bg-primary': item.distance === 255 && timeDifference <= 200,
+                  'bg-danger': item.distance === 255 && slotDifference > 16,
+                  'bg-primary': item.distance === 255 && slotDifference <= 16,
                   'bg-success': item.distance !== 255,
                 };
               },
@@ -599,14 +600,8 @@
             },
             { key: 'distance', label: 'Avg. Distance',
               renderFunction: (value, item) => {
-                let sum = 0;
-                if(calculateTimeDifferenceSeconds(item.block_timestamp) > 100){
-                  sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
-                }
-                else{
-                  console.log(value.filter(val => val !== 255))
-                  sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
-                }
+                let sum = value.map(value => value === 255 ? 32 : value).reduce((acc, val) => acc + val, 0);
+
                 const countMissed = value.filter(val => val === 255).length;
                 
                 let averageDistance = "-";
@@ -624,10 +619,10 @@
                   return "no attestation"
               },
               tooltipFunction: (value, item) => {
-                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                const slotDifference = currentSlot- item.slot;
 
                 let missed_attestation_string = "missed";
-                if(timeDifference <= 200)
+                if(slotDifference <= 30)
                   missed_attestation_string = "pending"
 
                 return value.map(value => value === 255 ? missed_attestation_string : value).join(", ")
@@ -640,7 +635,7 @@
                 return (value.length - missed_count) + "/" + value.length
               },
               renderClass: (value, item) => {
-                const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
+                const slotDifference = currentSlot - item.slot;
                 const countMissed = value.filter(val => val === 255).length;
                 
                 percentAttestet = (value.length - countMissed) / value.length * 100
@@ -648,9 +643,9 @@
                   percentAttestet = 100
                 return {
                   'status-label rounded-pill px-2 text-nowrap': true,
-                  'bg-danger': percentAttestet < 80 && timeDifference > 60,
-                  'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && timeDifference > 60,
-                  'bg-primary': timeDifference <= 60 && percentAttestet < 95,
+                  'bg-danger': percentAttestet < 80 && slotDifference > 5,
+                  'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && slotDifference > 5,
+                  'bg-primary': slotDifference <= 5 && percentAttestet < 95,
                   'bg-success': percentAttestet >= 95,
                 };
               },
