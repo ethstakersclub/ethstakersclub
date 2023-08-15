@@ -367,8 +367,13 @@ def api_get_sync_committee_participation(request):
 
     if from_slot <= 0:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid from_slot provided.'})
+    
+    include_pending = bool(request.GET.get('include_pending', False))
 
-    sync_committee_participation = get_sync_committee_participation(validator_ids, from_slot, range_value)
+    if include_pending is not True and include_pending is not False:
+        include_pending = False
+
+    sync_committee_participation = get_sync_committee_participation(validator_ids, from_slot, range_value, include_pending)
 
     response = {
         'success': True,
@@ -380,7 +385,7 @@ def api_get_sync_committee_participation(request):
     return JsonResponse(response)
 
 
-def get_sync_committee_participation(index_numbers, from_slot, range):
+def get_sync_committee_participation(index_numbers, from_slot, range, include_pending):
     sync_period_of_target_slot = int(from_slot / (SLOTS_PER_EPOCH*256)) + 1
 
     participated_sync_committee = SyncCommittee.objects.filter(validator_ids__overlap=index_numbers, period__lte=sync_period_of_target_slot).order_by("-period")[:3].values("validator_ids", "period")
@@ -396,7 +401,12 @@ def get_sync_committee_participation(index_numbers, from_slot, range):
             period_end = (psc["period"] + 1)*SLOTS_PER_EPOCH*256
             period_start = psc["period"]*SLOTS_PER_EPOCH*256
             
-            res = list(Block.objects.filter(slot_number__lt=period_end, slot_number__lte=from_slot, slot_number__gte=period_start)
+            if not include_pending:
+                blocks = Block.objects.exclude(empty=3)
+            else:
+                blocks = Block.objects.all()
+            
+            res = list(blocks.filter(slot_number__lt=period_end, slot_number__lte=from_slot, slot_number__gte=period_start)
                                     .order_by("-slot_number")[:remaining_items]
                                     .values("sync_committee_bits", "slot_number", "epoch", "empty")
                       )
@@ -420,20 +430,24 @@ def get_sync_committee_participation(index_numbers, from_slot, range):
         else:
             binary_string = None
 
-        for value in index_numbers_set.intersection(participated_sync_committee_mapping[scp["period"]]):
-            index = participated_sync_committee_mapping[scp["period"]].index(value)
-            if binary_string != None:
-                dashboard_sync_committee_participation.append(
-                    {"participated": "yes" if binary_string[index] == '1' else "no",
-                        "period": scp["period"], "slot": scp["slot_number"], "epoch": scp["epoch"], "validator_id": value, "participation": participation,
-                        "block_timestamp": calc_time_of_slot(scp["slot_number"]).isoformat()}
-                )
-            else:
-                dashboard_sync_committee_participation.append(
-                    {"participated": "no_block_proposed" if int(scp["empty"]) != 3 else "pending",
-                        "period": scp["period"], "slot": scp["slot_number"], "epoch": scp["epoch"], "validator_id": value, "participation": participation,
-                        "block_timestamp": calc_time_of_slot(scp["slot_number"]).isoformat()}
-                )
+        participated_validators = index_numbers_set.intersection(participated_sync_committee_mapping[scp["period"]])
+
+        if binary_string != None:
+            participated = []
+            for value in participated_validators:
+                participated.append(int(binary_string[participated_sync_committee_mapping[scp["period"]].index(value)]))
+
+            dashboard_sync_committee_participation.append(
+                {"participated": participated,
+                    "period": scp["period"], "slot": scp["slot_number"], "epoch": scp["epoch"], "validator_id": list(participated_validators), "participation": participation,
+                    "block_timestamp": calc_time_of_slot(scp["slot_number"]).isoformat()}
+            )
+        else:
+            dashboard_sync_committee_participation.append(
+                {"participated": "no_block_proposed" if int(scp["empty"]) != 3 else "pending",
+                    "period": scp["period"], "slot": scp["slot_number"], "epoch": scp["epoch"], "validator_id": list(participated_validators), "participation": participation,
+                    "block_timestamp": calc_time_of_slot(scp["slot_number"]).isoformat()}
+            )
     
     return dashboard_sync_committee_participation
 
@@ -488,7 +502,7 @@ def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
             target = sum(v[1] for v in epoch_attestation_rewards)
             source = sum(v[2] for v in epoch_attestation_rewards)
             sync_reward = sum(v[3] for v in epoch_attestation_rewards)
-            sync_penalty = sum(v[4] for v in epoch_attestation_rewards)
+            sync_penalty = sum(v[4] for v in epoch_attestation_rewards) * -1
             block_attestations = sum(v[5] for v in epoch_attestation_rewards)
             block_sync_aggregate = sum(v[6] for v in epoch_attestation_rewards)
             block_proposer_slashings = sum(v[7] for v in epoch_attestation_rewards)
@@ -616,6 +630,8 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
             "execution_apy": 0,
             "apy_sum": 0,
             "apy": 0,
+            "missed_attestations": 0,
+            "missed_sync": 0,
             "days": d,
             "diff": timezone.now().date() - timedelta(days=d),
            } for d in [1,7,30]]
@@ -643,6 +659,9 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                 if entry["date"] < now_date and entry["date"] >= e["diff"]:
                     e["execution_reward"] += float(execution_reward_change / 10**18)
                     e["consensus_reward"] += float(balance_change / 1000000000)
+
+                    e["missed_attestations"] += entry["missed_attestations_sum"]
+                    e["missed_sync"] += entry["missed_sync_sum"]
 
         previous_balance = entry["total_consensus_balance_sum"] - (entry["validator_count"] * BALANCE_PER_VALIDATOR * 10**9)
         previous_execution_reward = entry["execution_reward_sum"]

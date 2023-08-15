@@ -358,7 +358,7 @@ def process_validators(slot):
 
         cache_data['validator_' + str(int(val["index"]))] = json.dumps(validator)
 
-        if len(cache_data) > 200000:
+        if len(cache_data) > 100000:
             logger.info("bulk add validators to cache...")
             cache.set_many(cache_data, timeout=5000)
             cache_data = {}

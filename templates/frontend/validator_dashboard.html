@@ -11,7 +11,7 @@
     <div class="modal-content">
       <div id="add-validator-modal-body" class="modal-body text-left pt-4">
         <div class="mb-4" style="display: flex;align-items: center;flex-direction: column;">
-          <p class="text-white mb-1">Please input the Validator ID, Public Key, or Withdrawal Address. For bulk additions, please separate each entry with a comma.</p>
+          <p class="text-white mb-1">Please input the Validator ID, Public Key, or Withdrawal Address. For bulk, please separate each entry with a comma.</p>
           <input type="text" class="form-control" id="validator-add-input" placeholder="Enter Validator ID, Public Key or Withdrawal Address (comma-separated for bulk add)" style="flex-grow: 1;max-width: 100%;">
         </div>
         <ul id="results-validator-add-area" class="search-result-area" role="listbox" hidden=""></ul>
@@ -49,23 +49,23 @@
       <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
         <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
           <div class="key-metrics">
-            <div class="small">Validators Online
+            <div class="small text-light-main">Validators Online
               {% if user.is_authenticated %}
               <button type="button" class="btn btn-primary d-none d-xl-block" data-toggle="modal" data-target="#validatorModal" style="padding: 3px;position: absolute;top: 8px;right: 4px;background: #52628a;color: white;padding-left: 10px;padding-right: 10px;">Add more</button>
               {% endif %}
             </div>{{ dashboard_head_data.active_validators }}
           </div>
           <div class="key-metrics">
-            <div class="small">Validators Queued</div>{{ dashboard_head_data.queued_validators }}</div>
+            <div class="small text-light-main">Validators Queued</div>{{ dashboard_head_data.queued_validators }}</div>
       
       <div class="key-metrics">
-            <div class="small">Validators Exited</div>{{ dashboard_head_data.exited_validators }}</div>
+            <div class="small text-light-main">Validators Exited</div>{{ dashboard_head_data.exited_validators }}</div>
       <div class="key-metrics monitoring-rank" style="
       background: url('{{ monitoring_rank.image }}');
       background-size: {{ monitoring_rank.background_size }};
       background-repeat: no-repeat;
       background-position: right;">
-            <div class="small">Monitoring Rank</div>
+            <div class="small text-light-main">Monitoring Rank</div>
             {{ monitoring_rank.name }}
           </div>
         </div>
@@ -74,8 +74,8 @@
     {% if user.is_authenticated %}
     <div style="height: 30px;
     width: 100%;
-    padding-right: 8px;">
-      <button type="button" class="btn btn-primary d-block d-xl-none" data-toggle="modal" data-target="#validatorModal" style="float: right;padding: 3px 10px;background: rgb(82, 98, 138);color: white;">Add more Validators</button>
+    padding-right: 8px;" class="d-block d-xl-none">
+      <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#validatorModal" style="float: right;padding: 3px 10px;background: rgb(82, 98, 138);color: white;">Add more Validators</button>
     </div>
     {% endif %}
   </div>
@@ -265,8 +265,11 @@
     <div class='piechart-element'>
       <div class='piechart-label'>
         <div class='label-heading'>Attestation Efficiency ({{ attestation_efficiency_epochs }} epochs):</div>
-        <p class='small'>Current Average Efficiency: {{ average_attestation_efficiency|floatformat:2 }}%<br/>
-                         Total Attestations: {{ total_attestations|commaSeparatorNumber }}
+        <table class='small mt-2'>
+          <tr><td class="text-light-main">Current Average Efficiency:</td><td class="pl-2">{{ average_attestation_efficiency|floatformat:2 }}%</td></tr>
+          <tr><td class="text-light-main pt-3">Total Attestations:</td><td class="pl-2 pt-3">{{ total_attestations|commaSeparatorNumber }}</td></tr>
+          <tr><td class="text-light-main">Missed (Past Month):</td><td class="pl-2">{{ apy.2.missed_attestations|commaSeparatorNumber }}</td></tr>
+        </table>
       </div>
       <div class='piechart-percent main-color'>{{ efficiency }}%</div>
       <div class='piechart-container'>
@@ -278,12 +281,13 @@
 
       <div class='piechart-label'>
         <div class='label-heading'>Sync Committee:</div>
-        <p class='small'>
-                         Sync Committee Participations: {{ sync_participation_count }}<br/>
-                         Missed Sync Duties: {{ missed_sync_committee_duties }}/{{ sync_duty_count }}<br/><br/>
-                         Current: since {{ active_sync_validators.start_in }} - {% for i in active_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating<br/>
-                         Next: in {{ next_sync_validators.start_in }} - {% for i in next_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating
-                        </p>
+        <table class='small mt-2'>
+          <tr><td class="text-light-main">Participations:</td><td class="pl-2">{{ sync_participation_count }}</td></tr>
+          <tr><td class="text-light-main">Missed Sync Duties:</td><td class="pl-2">{{ missed_sync_committee_duties }}/{{ sync_duty_count }}</td></tr>
+
+          <tr><td class="pt-3 text-light-main">Current since {{ active_sync_validators.start_in }}</td><td class="pl-2 pt-3">{% for i in active_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating</td></tr>
+          <tr><td class="text-light-main">Next in {{ next_sync_validators.start_in }}</td><td class="pl-2">{% for i in next_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating</td></tr>
+        </table>
       </div>
       <div class='piechart-percent main-color'>{{ sync_efficiency }}%</div>
       <div class='piechart-container'>
@@ -294,9 +298,12 @@
     <div class='piechart-element'>
       <div class='piechart-label'>
         <div class='label-heading'>Block Proposals:</div>
-        <p class='small'>Total Proposals: {{ proposed_blocks_count }}/{{ block_count }}<br/>
-                         Average Reward: {{ average_execution_reward|floatformat:3 }} {{ currency_name }}<br/>
-                         Highest Reward: {{ highest_execution_reward|floatformat:3 }} {{ currency_name }}</p>
+        <table class='small mt-2'>
+          <tr><td class="text-light-main">Total Proposals:</td><td class="pl-2">{{ proposed_blocks_count }}/{{ block_count }}</td></tr>
+          <tr><td class="text-light-main">On Average Every:</td><td class="pl-2">{{ avg_time_till_proposal }}</td></tr>
+          <tr><td class="text-light-main pt-3">Average Reward:</td><td class="pl-2 pt-3">{% if average_execution_reward > 0 %}+{% endif %}{{ average_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
+          <tr><td class="text-light-main">Highest Reward:</td><td class="pl-2">{% if highest_execution_reward > 0 %}+{% endif %}{{ highest_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
+        </table>
       </div>
       <div class='piechart-percent main-color'>{{ block_proposal_efficiency }}%</div>
       <div class='piechart-container'>
@@ -654,7 +661,6 @@
             },
             { key: 'distance', label: 'Attestet',
               renderFunction: (value, item) => {
-                console.log(item)
                 const missed_count = value.filter(val => val === 255).length;
                 return (value.length - missed_count) + "/" + value.length
               },
@@ -764,10 +770,18 @@
             renderFunction: (value, item) => {
               return elideString(value)
             },
+            tooltipFunction: (value, item) => {
+              return value
+            },
           },
           { key: 'amount', label: 'Amount',
             renderFunction: (value, item) => {
               return "+" + value.toFixed(5) + " {{ currency_name }}";
+            },
+            renderClass: (value, item) => {
+              return {
+                'text-lightgreen': value > 0,
+              };
             },
           },
           { key: 'block__timestamp', label: 'Time',
@@ -845,18 +859,66 @@
               return '/slot/' + item.slot;
             },
           },
+          { key: 'validator_id', label: 'Validator ID',
+            renderFunction: (value, item) => {
+              return value.join(', ');
+            },
+            link: (value, item) => {
+              return '/validator/' + value.join(',');
+            },
+          },
           { key: 'participated', label: 'Participated',
             renderFunction: (value, item) => {
-              return value == "yes" ? "Participated" : value == "no" ? "Missed" : value == "pending" ? "Pending" : "No Block Proposed"
+              if(value == "pending")
+                return "Pending"
+              else if(value == "no_block_proposed")
+                return "No Block Proposed"
+              else if(value.length == 1)
+                return value[0] == 1 ? "Participated" : "Missed"
+              else if(value.length > 1){
+                if (value.every((element) => element === 1)) {
+                  return "Participated [" + value.join(", ") + "]";
+                }
+                else if (value.every((element) => element === 0)) {
+                  return "Missed [" + value.join(", ") + "]";
+                }
+                else if (value.length > 1) {
+                  return "Partial [" + value.join(", ") + "]";
+                }
+                return value
+              }
             },
             renderClass: (value, item) => {
+              let labelColor = "";
+              if(value == "pending")
+                labelColor = "pending"
+              else if(value == "no_block_proposed")
+                labelColor = "no_block_proposed"
+              else if(value.length == 1)
+                labelColor = value[0] == 1 ? "participated" : "missed"
+              else if(value.length > 1){
+                if (value.every((element) => element === 1)) {
+                  labelColor = "participated"
+                }
+                else if (value.every((element) => element === 0)) {
+                  labelColor = "missed"
+                }
+                else if (value.length > 1) {
+                  labelColor = "missed"
+                }
+              }
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': value == "yes",
-                'bg-danger': value == "no",
-                'bg-warning': value == "no_block_proposed",
-                'bg-primary': value == "pending",
+                'bg-success': labelColor == "participated",
+                'bg-danger': labelColor == "missed",
+                'bg-warning': labelColor == "no_block_proposed",
+                'bg-primary': labelColor == "pending",
               };
+            },
+          },
+          { key: 'participation', label: 'Participation',
+            renderFunction: (value, item) => {
+              return value + "/512"
             },
           },
         ],
@@ -872,7 +934,17 @@
               return '/validator/' + item.validator_id;
             },
           },
-          { key: 'status', label: 'Status' },
+          { key: 'status', label: 'Status',
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-success': ({{ active_statuses|safe }}).includes(value),
+                'bg-danger': ({{ exiting_statuses|safe }}).includes(value),
+                'bg-warning': ({{ exited_statuses|safe }}).includes(value),
+                'bg-primary': ({{ pending_statuses|safe }}).includes(value),
+              };
+            },
+          },
           { key: 'efficiency', label: 'Efficiency',
             renderFunction: (value, item) => {
               return value/100 + "%"
@@ -1310,7 +1382,6 @@ var efficiencyChart = new Chart(ctx, {
   });
 
   function submitValidator(){
-    console.log(root.getValidatorAddData().map(item => item.validator_id === "pending" ? item.public_key : item.validator_id))
     axios({
       url: "{% url 'save_watched_validators' %}",
       method: 'post',
@@ -1357,10 +1428,13 @@ axios.get("{% url 'api:check_if_proposal_scheduled' %}")
     const { proposal_scheduled, next_block_not_in, next_block_in } = response.data;
 
     if (proposal_scheduled === 'Yes') {
+      nextProposalTimerElement.classList.add("lightgreen");
       startCountdown(next_block_in, "Proposal in ");
     } else if (proposal_scheduled === 'No') {
+      nextProposalTimerElement.classList.remove("lightgreen");
       startCountdown(next_block_not_in, "No proposal imminent in the next ");
     } else {
+      nextProposalTimerElement.classList.remove("lightgreen");
       nextProposalTimerElement.textContent = '(schedule update pending)';
     }
   })

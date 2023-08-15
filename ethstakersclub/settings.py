@@ -106,5 +106,10 @@ LOGOUT_REDIRECT_URL = 'dashboard_empty'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
+PENDING_STATUSES = frozenset({"pending_queued", "pending_initialized"})
+EXITED_STATUSES = frozenset({"exited_unslashed", "exited_slashed", "withdrawal_possible", "withdrawal_done"})
+EXITING_STATUSES = frozenset({"active_exiting", "active_slashed"})
+
 from settings import *
 from ethstakersclub.monitoring_ranks import MONITORING_RANKS

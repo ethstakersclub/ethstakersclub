@@ -3,7 +3,8 @@ from datetime import datetime
 import json
 from ethstakersclub.settings import DEPOSIT_CONTRACT_ADDRESS, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH, \
     EXECUTION_HTTP_API_ENDPOINT, w3, SECONDS_PER_SLOT, MEV_BOOST_RELAYS, MAX_SLOTS_PER_DAY, GENESIS_TIMESTAMP, \
-    EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
+    EPOCH_REWARDS_HISTORY_DISTANCE, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, \
+    ACTIVE_STATUSES, PENDING_STATUSES, EXITED_STATUSES, EXITING_STATUSES
 import requests
 from blockfetcher.models import Block, Withdrawal, AttestationCommittee, ValidatorBalance, StakingDeposit
 from blockfetcher.models import Epoch, SyncCommittee, MissedSync, MissedAttestation
@@ -283,11 +284,6 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
 
     logger.info("creating validator statistics %s.", epoch)
     validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH))
-
-    ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
-    PENDING_STATUSES = frozenset({"pending_queued", "pending_initialized"})
-    EXITED_STATUSES = frozenset({"exited_unslashed", "exited_slashed", "withdrawal_possible", "withdrawal_done"})
-    EXITING_STATUSES = frozenset({"active_exiting", "active_slashed"})
 
     status_list = [v["status"] for v in validators["data"]]
     status_counts = Counter(status_list)

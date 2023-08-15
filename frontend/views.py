@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY
 import json
 from django.utils import timezone
 import datetime
@@ -250,6 +250,34 @@ def get_monitoring_rank(validator_count):
             return m
 
 
+def get_average_time_till_proposal(active_validators_count, active_owned_validators):
+    try:
+        avg_time_till_proposal = active_validators_count / MAX_SLOTS_PER_DAY / active_owned_validators
+
+        avg_time_timedelta = datetime.timedelta(days=avg_time_till_proposal)
+
+        days = avg_time_timedelta.days
+        hours, remainder = divmod(avg_time_timedelta.seconds, 3600)
+        minutes, _ = divmod(remainder, 60)
+
+        if days > 0:
+            result = f"{days} {'day' if days == 1 else 'days'}"
+            if hours > 0 or minutes > 0:
+                result += f" and {hours} {'hour' if hours == 1 else 'hours'}"
+            if minutes > 0:
+                result += f" and {minutes} {'minute' if minutes == 1 else 'minutes'}"
+        elif hours > 0:
+            result = f"{hours} {'hour' if hours == 1 else 'hours'}"
+            if minutes > 0:
+                result += f" and {minutes} {'minute' if minutes == 1 else 'minutes'}"
+        else:
+            result = f"{minutes} {'minute' if minutes == 1 else 'minutes'}"
+
+        return result
+    except:
+        return "unknown"
+
+
 @measure_execution_time
 def view_validator(request, index, dashboard=False):
     validators_monitored_count, validator_ids, public_keys = split_validator_ids(index, request)
@@ -368,6 +396,7 @@ def view_validator(request, index, dashboard=False):
         'validator_info': validator_info,
         'slots_since_first_online': slots_since_first_online,
         'monitoring_rank': get_monitoring_rank(dashboard_head_data["active_validators"]),
+        'avg_time_till_proposal': get_average_time_till_proposal(active_validators_count, dashboard_head_data["active_validators"]),
     }
     view = render(request, 'frontend/validator_dashboard.html', context)
 

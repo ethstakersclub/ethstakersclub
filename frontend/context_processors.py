@@ -1,6 +1,7 @@
 # context_processors.py
 
-from ethstakersclub.settings import CURRENCY_NAME, VALIDATOR_MONITORING_LIMIT, DEBUG, ATTESTATION_EFFICIENCY_EPOCHS, EPOCH_REWARDS_HISTORY_DISTANCE
+from ethstakersclub.settings import CURRENCY_NAME, VALIDATOR_MONITORING_LIMIT, DEBUG, ATTESTATION_EFFICIENCY_EPOCHS, EPOCH_REWARDS_HISTORY_DISTANCE, \
+                                    ACTIVE_STATUSES, PENDING_STATUSES, EXITED_STATUSES, EXITING_STATUSES
 from blockfetcher.cache import *
 from blockfetcher.models import Main
 
@@ -15,6 +16,10 @@ def general_context_processor(request):
         'attestation_efficiency_epochs': ATTESTATION_EFFICIENCY_EPOCHS,
         'validator_monitoring_limit': VALIDATOR_MONITORING_LIMIT,
         'epoch_rewards_history_distance': EPOCH_REWARDS_HISTORY_DISTANCE,
+        'active_statuses': json.dumps(list(ACTIVE_STATUSES)),
+        'pending_statuses': json.dumps(list(PENDING_STATUSES)),
+        'exited_statuses': json.dumps(list(EXITED_STATUSES)),
+        'exiting_statuses': json.dumps(list(EXITING_STATUSES)),
         'current_slot': current_slot,
         'current_epoch': current_epoch,
         'finalized_epoch': finalized_epoch,
