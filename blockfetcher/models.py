@@ -5,6 +5,25 @@ from django.db.models import Index
 from django.db.models.functions import Lower
 
 
+# Validator status
+STATUS_CHOICES = [
+    ('pending_initialized', 'Pending Initialized'),
+    ('pending_queued', 'Pending Queued'),
+    ('active_ongoing', 'Active Ongoing'),
+    ('active_exiting', 'Active Exiting'),
+    ('active_slashed', 'Active Slashed'),
+    ('exited_unslashed', 'Exited Unslashed'),
+    ('exited_slashed', 'Exited Slashed'),
+    ('withdrawal_possible', 'Withdrawal Possible'),
+    ('withdrawal_done', 'Withdrawal Done'),
+    ('active', 'Active'),
+    ('pending', 'Pending'),
+    ('exited', 'Exited'),
+    ('withdrawal', 'Withdrawal'),
+    ('unknown', 'Unknown'),
+]
+
+
 class Validator(models.Model):
     # Validator ID
     validator_id = models.IntegerField(unique=True, db_index=True, primary_key=True)
@@ -25,22 +44,6 @@ class Validator(models.Model):
     total_withdrawn = models.DecimalField(max_digits=27, decimal_places=0, default=0)
 
     # Validator status
-    STATUS_CHOICES = [
-        ('pending_initialized', 'Pending Initialized'),
-        ('pending_queued', 'Pending Queued'),
-        ('active_ongoing', 'Active Ongoing'),
-        ('active_exiting', 'Active Exiting'),
-        ('active_slashed', 'Active Slashed'),
-        ('exited_unslashed', 'Exited Unslashed'),
-        ('exited_slashed', 'Exited Slashed'),
-        ('withdrawal_possible', 'Withdrawal Possible'),
-        ('withdrawal_done', 'Withdrawal Done'),
-        ('active', 'Active'),
-        ('pending', 'Pending'),
-        ('exited', 'Exited'),
-        ('withdrawal', 'Withdrawal'),
-        ('unknown', 'Unknown'),
-    ]
     status = models.CharField(max_length=19, choices=STATUS_CHOICES, default="unknown")
 
     # Slashed
@@ -241,6 +244,8 @@ class ValidatorBalance(models.Model):
     execution_reward = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     missed_attestations = models.IntegerField()
     missed_sync = models.IntegerField()
+    total_deposited = models.DecimalField(max_digits=27, decimal_places=0, default=0)
+    status = models.CharField(max_length=19, choices=STATUS_CHOICES, default="unknown")
 
     class Meta:
         unique_together = [["validator_id", "date"]]

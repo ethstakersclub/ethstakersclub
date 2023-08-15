@@ -152,39 +152,44 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
     timestamp = timezone.make_aware(datetime.fromtimestamp(int(timestamp)), timezone=timezone.utc).date()
     timestamp_target = timestamp - timezone.timedelta(days=1)
 
-    lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp)\
+    highest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp)\
         .order_by('slot_number').first().slot_number
-    lowest_slot_at_date_target = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp_target)\
+    lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp_target)\
         .order_by('slot_number').first().slot_number
     
+    highest_block_at_date = Block.objects.filter(slot_number__lte=highest_slot_at_date, empty=0).order_by('-slot_number').first().block_number
+    
     if ValidatorBalance.objects.filter(date=timestamp_target).exists() and force_run == False:
-        logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(lowest_slot_at_date))
+        logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(highest_slot_at_date))
 
-        if ValidatorBalance.objects.filter(slot=lowest_slot_at_date).exists():
-            logger.info("snapshot slot matches existing one, exiting: %s.", lowest_slot_at_date)
+        if ValidatorBalance.objects.filter(slot=highest_slot_at_date).exists():
+            logger.info("snapshot slot matches existing one, exiting: %s.", highest_slot_at_date)
             return
         else:
-            logger.error("snapshot slot does not match existing one. new: %s.", lowest_slot_at_date)
+            logger.error("snapshot slot does not match existing one. new: %s.", highest_slot_at_date)
 
-    validators = beacon.get_validators(state_id=str(lowest_slot_at_date))
+    validators = beacon.get_validators(state_id=str(highest_slot_at_date))
 
-    logger.info("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(lowest_slot_at_date))
+    logger.info("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(highest_slot_at_date))
 
     # Query to aggregate the total amount withdrawn for each validator
-    withdrawal_totals = Withdrawal.objects.filter(block__slot_number__lt=lowest_slot_at_date).values('validator').annotate(total_withdrawn=Sum('amount'))
+    withdrawal_totals = Withdrawal.objects.filter(block__slot_number__lt=highest_slot_at_date).values('validator').annotate(total_withdrawn=Sum('amount'))
     total_amount_withdrawn = {withdrawal['validator']: withdrawal['total_withdrawn'] for withdrawal in withdrawal_totals}
 
-    validator_missed_attestations = MissedAttestation.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
+    validator_missed_attestations = MissedAttestation.objects.filter(slot__lt=highest_slot_at_date, slot__gte=lowest_slot_at_date).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_attestations_dict = {v['validator_id']: v['count'] for v in validator_missed_attestations}
 
-    validator_missed_sync = MissedSync.objects.filter(slot__lt=lowest_slot_at_date, slot__gte=lowest_slot_at_date_target).values('validator_id').annotate(count=Count('validator_id'))
+    validator_missed_sync = MissedSync.objects.filter(slot__lt=highest_slot_at_date, slot__gte=lowest_slot_at_date).values('validator_id').annotate(count=Count('validator_id'))
     validator_missed_sync_dict = {v['validator_id']: v['count'] for v in validator_missed_sync}
 
-    execution_totals = Block.objects.filter(slot_number__lte=lowest_slot_at_date, empty=0, slot_number__gte=MERGE_SLOT).values(
+    execution_totals = Block.objects.filter(slot_number__lte=highest_slot_at_date, empty=0, slot_number__gte=MERGE_SLOT).values(
         'proposer').annotate(execution_total=Sum('total_reward'))
 
     total_execution_rewards = {block['proposer']: block['execution_total'] for block in
                             execution_totals}
+    
+    total_deposited = StakingDeposit.objects.filter(block_number__lt=highest_block_at_date).values('validator_id').annotate(deposit_total=Sum('amount'))
+    total_deposited_dict = {int(d['validator_id']): int(d['deposit_total']) for d in total_deposited if d['validator_id'] is not None}
 
     create_validator_balances_iter = iter(
         ValidatorBalance(validator_id=int(validator["index"]),
@@ -194,12 +199,14 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
                                                     int(validator["balance"]) +
                                                     (total_amount_withdrawn[int(validator["index"])] if int(validator["index"]) in total_amount_withdrawn else 0)
                                                 ),
-                        slot=lowest_slot_at_date,
+                        slot=highest_slot_at_date,
                         execution_reward=decimal.Decimal(
                                                     (total_execution_rewards[int(validator["index"])] if int(validator["index"]) in total_execution_rewards else 0)
                                                 ),
                         missed_attestations=validator_missed_attestations_dict[int(validator["index"])] if int(validator["index"]) in validator_missed_attestations_dict else 0,
                         missed_sync=validator_missed_sync_dict[int(validator["index"])] if int(validator["index"]) in validator_missed_sync_dict else 0,
+                        total_deposited=total_deposited_dict[int(validator["index"])] if int(validator["index"]) in total_deposited_dict else 0,
+                        status=str(validator["status"]),
                         )
         for count, validator in enumerate(validators["data"]))
 
@@ -207,7 +214,7 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
 
     def insert_batch(batch):
         ValidatorBalance.objects.bulk_create(batch, batch_size, update_conflicts=True, 
-                                                update_fields=["total_consensus_balance", "slot", "balance", "execution_reward", "missed_attestations", "missed_sync"], 
+                                                update_fields=["total_consensus_balance", "slot", "balance", "execution_reward", "missed_attestations", "missed_sync", "total_deposited", "status"], 
                                                 unique_fields=["validator_id", "date"])
 
     pool = ThreadPoolExecutor(max_workers=4)

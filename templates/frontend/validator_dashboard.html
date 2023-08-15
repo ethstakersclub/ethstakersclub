@@ -642,8 +642,10 @@
               renderClass: (value, item) => {
                 const timeDifference = calculateTimeDifferenceSeconds(item.block_timestamp);
                 const countMissed = value.filter(val => val === 255).length;
-
+                
                 percentAttestet = (value.length - countMissed) / value.length * 100
+                if(value.length == 0)
+                  percentAttestet = 100
                 return {
                   'status-label rounded-pill px-2 text-nowrap': true,
                   'bg-danger': percentAttestet < 80 && timeDifference > 60,

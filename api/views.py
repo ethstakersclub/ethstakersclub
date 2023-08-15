@@ -572,6 +572,7 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
             execution_reward_sum=Sum('execution_reward'),
             missed_attestations_sum=Sum('missed_attestations'),
             missed_sync_sum=Sum('missed_sync'),
+            validator_count=Count('validator_id'),
             last_slot=F('slot')
         )
         .order_by('date')
@@ -584,7 +585,7 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
     
     active_validator_count = sum(1 for v in cached_validators if v["status"] == "active_ongoing" or v["status"] == "active_exiting" or v["status"] == "active_slashed")
 
-    total_deposited = sum(v["deposited"] for v in cached_validators) / 1000000000
+    total_deposited = float(sum(v["deposited"] for v in cached_validators) / 1000000000)
 
     if timezone.now().date() == from_date:
         if len(history) == 0 or (len(history) > 0 and history_last_slot < validator_update_slot):
@@ -600,6 +601,7 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                     "execution_reward_sum": execution_reward_sum,
                     "missed_attestations_sum": missed_attestations_sum,
                     "missed_sync_sum": missed_sync_sum,
+                    "validator_count": len(cached_validators)
                 }
             )
 
@@ -625,7 +627,7 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
 
     for entry in history:
         if previous_balance != 0:
-            balance_change = entry["total_consensus_balance_sum"] - previous_balance
+            balance_change = entry["total_consensus_balance_sum"]  - (entry["validator_count"] * BALANCE_PER_VALIDATOR * 10**9) - previous_balance
             execution_reward_change = entry["execution_reward_sum"] - previous_execution_reward
 
             new_entry = {
@@ -642,12 +644,12 @@ def get_chart_data_daily_rewards(index_array, from_date, range_value, cached_val
                     e["execution_reward"] += float(execution_reward_change / 10**18)
                     e["consensus_reward"] += float(balance_change / 1000000000)
 
-        previous_balance = entry["total_consensus_balance_sum"]
+        previous_balance = entry["total_consensus_balance_sum"] - (entry["validator_count"] * BALANCE_PER_VALIDATOR * 10**9)
         previous_execution_reward = entry["execution_reward_sum"]
     
     if len(history) > 0:
-        total_rewards["total_execution_reward"] = (history[-1]["execution_reward_sum"] / 10**18)
-        total_rewards["total_consensus_reward"] = (history[-1]["total_consensus_balance_sum"] / 1000000000) - total_deposited
+        total_rewards["total_execution_reward"] = float(history[-1]["execution_reward_sum"] / 10**18)
+        total_rewards["total_consensus_reward"] = float(history[-1]["total_consensus_balance_sum"] / 1000000000) - total_deposited
 
     for e in apy:
         e["total_reward"] = (e["execution_reward"] + e["consensus_reward"])
