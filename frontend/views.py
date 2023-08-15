@@ -341,7 +341,6 @@ def view_validator(request, index, dashboard=False):
             pending_validators_info.append(get_validator_info(validator_dict[c["validator_id"]], c, validators_per_epoch, active_validators_count, validator_update_epoch, current_slot, add_staking_deposits=False))
         else:
             missed_sync_committee_duties += int(c["missed_sync_total"])
-            missed_sync_committee_duties += int(c["missed_sync"])
 
             proposed_blocks_count += int(c["s_proposals"])
             block_count += int(c["proposals"])
