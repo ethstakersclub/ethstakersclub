@@ -229,16 +229,38 @@
               <td class="text-right pt-0">{% if total_rewards.total_consensus_reward >= 0 %}+{% endif %}{{ total_rewards.total_consensus_reward|floatformat:4 }} {{ currency_name }}</td>
             </tr>
             <tr>
-              <td class="pb-0">APY (week)</td>
-              <td class="text-right pb-0 {% if apy.1.apy >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.1.apy >= 0 %}+{% endif %}{{ apy.1.apy|floatformat:2 }}% p.a. ({{ apy.1.apy_sum|floatformat:1 }} {{ currency_name }})</td>
+              <td class="pb-0">
+                APY 
+                <div class="btn-group">
+                  <button style="background: rgb(82, 98, 138);padding-top:3px;padding-bottom:3px;" type="button" class="btn btn-secondary dropdown-toggle rounded-pill text-white px-3 ml-1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    {% verbatim %}{{ apy_period }}{% endverbatim %}
+                  </button>
+                  <div class="dropdown-menu dropdown-menu-right">
+                    <button class="dropdown-item" type="button" @click="apy_period='Day'">Day</button>
+                    <button class="dropdown-item" type="button" @click="apy_period='Week'">Week</button>
+                    <button class="dropdown-item" type="button" @click="apy_period='Month'">Month</button>
+                  </div>
+                </div>
+              </td>
+              <td v-show="apy_period == 'Day'" class="text-right pb-0 {% if apy.0.apy >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.0.apy >= 0 %}+{% endif %}{{ apy.0.apy|floatformat:2 }}% p.a. ({{ apy.0.apy_sum|floatformat:1 }} {{ currency_name }})</td>
+              <td v-show="apy_period == 'Week'" class="text-right pb-0 {% if apy.1.apy >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.1.apy >= 0 %}+{% endif %}{{ apy.1.apy|floatformat:2 }}% p.a. ({{ apy.1.apy_sum|floatformat:1 }} {{ currency_name }})</td>
+              <td v-show="apy_period == 'Month'" class="text-right pb-0 {% if apy.2.apy >= 0 %}summary-td-positive{% else %}summary-td-negative{% endif %}">{% if apy.2.apy >= 0 %}+{% endif %}{{ apy.2.apy|floatformat:2 }}% p.a. ({{ apy.2.apy_sum|floatformat:1 }} {{ currency_name }})</td>
             </tr>
             <tr>
               <td class="pb-0 pt-0" style="padding-left:32px">Execution</td>
-              <td class="text-right pb-0 pt-0">{{ apy.1.execution_apy|floatformat:2 }}% p.a. ({{ apy.1.execution_apy_sum|floatformat:1 }} {{ currency_name }})</td>
+              <td class="text-right pb-0 pt-0">
+                <span v-show="apy_period == 'Day'">{{ apy.0.execution_apy|floatformat:2 }}% p.a. ({{ apy.0.execution_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+                <span v-show="apy_period == 'Week'">{{ apy.1.execution_apy|floatformat:2 }}% p.a. ({{ apy.1.execution_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+                <span v-show="apy_period == 'Month'">{{ apy.2.execution_apy|floatformat:2 }}% p.a. ({{ apy.2.execution_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+              </td>
             </tr>
             <tr>
               <td class="pt-0" style="padding-left:32px">Consensus</td>
-              <td class="text-right pt-0">{{ apy.1.consensus_apy|floatformat:2 }}% p.a. ({{ apy.1.consensus_apy_sum|floatformat:1 }} {{ currency_name }})</td>
+              <td class="text-right pt-0">
+                <span v-show="apy_period == 'Day'">{{ apy.0.consensus_apy|floatformat:2 }}% p.a. ({{ apy.0.consensus_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+                <span v-show="apy_period == 'Week'">{{ apy.1.consensus_apy|floatformat:2 }}% p.a. ({{ apy.1.consensus_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+                <span v-show="apy_period == 'Month'">{{ apy.2.consensus_apy|floatformat:2 }}% p.a. ({{ apy.2.consensus_apy_sum|floatformat:1 }} {{ currency_name }})</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -524,6 +546,7 @@
   const App = {
     data() {
       return {
+        apy_period: "Week",
         {% if validator_count > 0 %}
         attestationsJsonData: [],
         {% if validator_count <= 50 %}
