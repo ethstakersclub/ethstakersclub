@@ -60,19 +60,13 @@
       
       <div class="key-metrics">
             <div class="small">Validators Exited</div>{{ dashboard_head_data.exited_validators }}</div>
-      <div class="key-metrics monitoring-rank" style="background: url(
-        {% if dashboard_head_data.active_validators <= 5 %}'/static/img/pug_l1.png');background-size: 130px
-      {% elif dashboard_head_data.active_validators <= 10 %}'/static/img/pug_l2.png');background-size: 130px
-      {% elif dashboard_head_data.active_validators <= 25 %}'/static/img/pug_l3.png');background-size: 120px
-      {% elif dashboard_head_data.active_validators <= 50 %}'/static/img/pug_l4.png');background-size: 130px
-      {% else %}'/static/img/pug_l5.png');background-size: 35%{% endif %}
-      ;background-repeat: no-repeat;background-position: right;">
+      <div class="key-metrics monitoring-rank" style="
+      background: url('{{ monitoring_rank.image }}');
+      background-size: {{ monitoring_rank.background_size }};
+      background-repeat: no-repeat;
+      background-position: right;">
             <div class="small">Monitoring Rank</div>
-            {% if dashboard_head_data.active_validators <= 5 %}Fish
-            {% elif dashboard_head_data.active_validators <= 10 %}Dolphin
-            {% elif dashboard_head_data.active_validators <= 25 %}Shark
-            {% elif dashboard_head_data.active_validators <= 50 %}Whale
-            {% else %}Killer Whale{% endif %}
+            {{ monitoring_rank.name }}
           </div>
         </div>
       </div>
@@ -1151,8 +1145,9 @@ const data_efficiency = {
   datasets: [
     {
       data: [{{ efficiency }}, {{ efficiency_lag }}],
-      backgroundColor: ["#264b71", "#CE6735"],
-      label: "Percent"
+      label: "Percent",
+      backgroundColor: ["#1c436a", "#93603c"],
+      borderColor: ["#36a2eb", "#d37142"],
     }
   ]
 };
@@ -1180,8 +1175,9 @@ const data_blocks_chart = {
   datasets: [
     {
       data: [{{ block_proposal_efficiency }}, {{ block_proposal_efficiency_lag }}],
-      backgroundColor: ["#264b71", "#CE6735"],
-      label: "Percent"
+      label: "Percent",
+      backgroundColor: ["#1c436a", "#93603c"],
+      borderColor: ["#36a2eb", "#d37142"],
     }
   ]
 };
@@ -1213,8 +1209,9 @@ const data_sync_chart = {
       {% else %}
       data: [{{ 1 }}, {{ 0 }}],
       {% endif %}
-      backgroundColor: ["#264b71", "#CE6735"],
-      label: "Duties"
+      label: "Duties",
+      backgroundColor: ["#1c436a", "#93603c"],
+      borderColor: ["#36a2eb", "#d37142"],
     }
   ]
 };

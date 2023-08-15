@@ -241,11 +241,12 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')
-                                task = load_epoch_rewards_task.delay(check_epoch - 2)
+                                #task = load_epoch_rewards_task.delay(check_epoch - 2)
+                                load_epoch_rewards_task.delay(check_epoch - 2)
 
-                                if initial_run:
-                                    while not task.ready():
-                                        time.sleep(1)
+                                #if initial_run:
+                                #    while not task.ready():
+                                #        time.sleep(1)
 
                             snapshot_creation_timestamp = GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * (slot - (SLOTS_PER_EPOCH * SNAPSHOT_CREATION_EPOCH_DELAY)))
                             snapshot_creation_date = timezone.make_aware(datetime.fromtimestamp(snapshot_creation_timestamp), timezone=timezone.utc)

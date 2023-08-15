@@ -107,3 +107,4 @@ LOGOUT_REDIRECT_URL = 'dashboard_empty'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 from settings import *
+from ethstakersclub.monitoring_ranks import MONITORING_RANKS

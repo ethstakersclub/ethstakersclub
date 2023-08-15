@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS
 import json
 from django.utils import timezone
 import datetime
@@ -244,6 +244,12 @@ def get_efficiency_and_dashboard_head_info(cached_validators):
     return dashboard_head_data, efficiency
 
 
+def get_monitoring_rank(validator_count):
+    for m in reversed(MONITORING_RANKS):
+        if m["up-to-validator-count"] <= validator_count:
+            return m
+
+
 @measure_execution_time
 def view_validator(request, index, dashboard=False):
     validators_monitored_count, validator_ids, public_keys = split_validator_ids(index, request)
@@ -361,6 +367,7 @@ def view_validator(request, index, dashboard=False):
         'validator_array': ','.join(map(str, validator_ids)),
         'validator_info': validator_info,
         'slots_since_first_online': slots_since_first_online,
+        'monitoring_rank': get_monitoring_rank(dashboard_head_data["active_validators"]),
     }
     view = render(request, 'frontend/validator_dashboard.html', context)
 
