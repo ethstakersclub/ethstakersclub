@@ -45,9 +45,9 @@ function calculateTimeDifference(timestamp) {
     }
 
     return formattedTimeDifference;
-    }
+}
 
-    function calculateTimeDifferenceSeconds(timestamp) {
+function calculateTimeDifferenceSeconds(timestamp) {
     const datetimeValue = new Date(timestamp);
     const now = new Date();
     const diffMilliseconds = now - datetimeValue;

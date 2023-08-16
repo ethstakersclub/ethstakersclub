@@ -1,22 +1,25 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
-from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee
+from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, \
+                                    BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, ACTIVE_STATUSES
+from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee, ValidatorBalance
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
 from threading import Lock
 from datetime import datetime
-from django.db.models import Sum
 import logging
 from django.utils import timezone
-from django.db.models import Count, Func, F
+from django.db.models import Count, Func, F, Sum, Max
 from django.core.cache import cache
 from blockfetcher.beacon_api import BeaconAPI
+import json
+from api.util import measure_execution_time
 
 logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 
 
+@measure_execution_time
 def get_attestation_efficiency(epoch, validator_count):
     logger.info(f"calculate attestation efficiency for {validator_count} validators...")
     attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(epoch - ATTESTATION_EFFICIENCY_EPOCHS)*SLOTS_PER_EPOCH,
@@ -133,6 +136,17 @@ def calculate_total_execution_reward_by_validator():
     return total_execution_rewards
 
 
+def calculate_total_deposited_by_validator():
+    logger.info("calculate total deposit sum for each validator")
+
+    deposit_totals = StakingDeposit.objects.all().values('validator_id').annotate(deposit_total=Sum('amount'))
+
+    total_deposited = {int(d['validator_id']): int(d['deposit_total']) for d in
+                               deposit_totals if d['validator_id'] is not None}
+    
+    return total_deposited
+
+
 def calculate_validator_missed_attestations(slot):
     logger.info("calculate missed attestations at date")
     
@@ -169,6 +183,15 @@ def calculate_validator_missed_sync(slot):
     return validator_missed_sync_dict
 
 
+def calculate_validator_missed_sync_all():
+    logger.info("count all missed sync")
+
+    validator_missed_sync_all = MissedSync.objects.all().values('validator_id').annotate(count=Count('validator_id'))
+    validator_missed_sync_all_dict = {v['validator_id']: v['count'] for v in validator_missed_sync_all}
+
+    return validator_missed_sync_all_dict
+
+
 def calculate_sync_committee_participation_count(slot):
     logger.info("calculate sync committee participation count")
 
@@ -179,6 +202,51 @@ def calculate_sync_committee_participation_count(slot):
     sync_committee_participation_dict = {int(tag): int(count) for tag, count in sync_committee_participation_count}
 
     return sync_committee_participation_dict
+
+
+def count_proposals(slot):
+    logger.info("count proposed blocks")
+
+    proposals_per_validator = Block.objects.filter(slot_number__lte=slot).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
+
+    return proposals_per_validator_dict
+
+
+def count_successful_proposals(slot):
+    logger.info("count successfully proposed blocks")
+
+    proposals_per_validator = Block.objects.filter(slot_number__lte=slot, empty=0).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
+
+    return proposals_per_validator_dict
+
+
+def count_proposals_after_merge(slot):
+    logger.info("count proposals after merge")
+
+    proposals_per_validator = Block.objects.filter(slot_number__lte=slot).exclude(block_number=None).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
+
+    return proposals_per_validator_dict
+
+
+def calculate_highest_reward(slot):
+    logger.info("calculate highest (mev) reward")
+
+    max_reward_per_validator = Block.objects.filter(slot_number__lte=slot).exclude(block_number=None).values('proposer').annotate(max_reward=Max('total_reward')).values_list('proposer', 'max_reward')
+    max_reward_per_validator_dict = {int(proposer): int(max_reward) for proposer, max_reward in max_reward_per_validator if proposer is not None}
+
+    return max_reward_per_validator_dict
+
+
+def count_withdrawals_per_validator(slot):
+    logger.info("count withdrawals per validator")
+
+    withdrawals_per_validator = Withdrawal.objects.filter(block_id__lte=slot).values('validator').annotate(count=Count('validator')).values_list('validator', 'count')
+    withdrawals_per_validator_dict = {int(validator): int(count) for validator, count in withdrawals_per_validator}
+
+    return withdrawals_per_validator_dict
 
 
 def create_validators(validators):
@@ -247,7 +315,17 @@ def process_validators(slot):
     validator_missed_attestations_dict = calculate_validator_missed_attestations(slot)
     validator_missed_sync_dict = calculate_validator_missed_sync(slot)
 
-    ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
+    validator_missed_sync_all_dict = calculate_validator_missed_sync_all()
+
+    proposals_per_validator_dict = count_proposals(slot)
+    successful_proposals_per_validator_dict = count_successful_proposals(slot)
+    proposals_after_merge_per_validator_dict = count_proposals_after_merge(slot)
+
+    max_reward_per_validator_dict = calculate_highest_reward(slot)
+
+    withdrawals_per_validator_dict = count_withdrawals_per_validator(slot)
+
+    total_deposited_dict = calculate_total_deposited_by_validator()
 
     pending_validators, active_validators = 0, 0
     cache_data = {}
@@ -269,12 +347,19 @@ def process_validators(slot):
             "sync_p_count": sync_committee_participation_dict[int(val["index"])] if int(val["index"]) in sync_committee_participation_dict else 0,
             "missed_attestations": validator_missed_attestations_dict[int(val["index"])] if int(val["index"]) in validator_missed_attestations_dict else 0,
             "missed_sync": validator_missed_sync_dict[int(val["index"])] if int(val["index"]) in validator_missed_sync_dict else 0,
+            "missed_sync_total": validator_missed_sync_all_dict[int(val["index"])] if int(val["index"]) in validator_missed_sync_all_dict else 0,
             "pre_val": pending_validators if str(val["status"]) == "pending_queued" else -1,
+            "proposals": proposals_per_validator_dict[int(val["index"])] if int(val["index"]) in proposals_per_validator_dict else 0,
+            "s_proposals": successful_proposals_per_validator_dict[int(val["index"])] if int(val["index"]) in successful_proposals_per_validator_dict else 0,
+            "am_proposals": proposals_after_merge_per_validator_dict[int(val["index"])] if int(val["index"]) in proposals_after_merge_per_validator_dict else 0,
+            "max_reward": max_reward_per_validator_dict[int(val["index"])] if int(val["index"]) in max_reward_per_validator_dict else 0,
+            "withdrawals": withdrawals_per_validator_dict[int(val["index"])] if int(val["index"]) in withdrawals_per_validator_dict else 0,
+            "deposited": total_deposited_dict[int(val["index"])] if int(val["index"]) in total_deposited_dict else 0,
         }
 
-        cache_data['validator_' + str(int(val["index"]))] = str(validator)
+        cache_data['validator_' + str(int(val["index"]))] = json.dumps(validator)
 
-        if len(cache_data) > 200000:
+        if len(cache_data) > 100000:
             logger.info("bulk add validators to cache...")
             cache.set_many(cache_data, timeout=5000)
             cache_data = {}

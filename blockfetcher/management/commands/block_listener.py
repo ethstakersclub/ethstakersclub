@@ -4,7 +4,6 @@ from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, p
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task
 import json
 import requests
-from websockets import connect
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
                                     SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP
@@ -242,11 +241,12 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')
-                                task = load_epoch_rewards_task.delay(check_epoch - 2)
+                                #task = load_epoch_rewards_task.delay(check_epoch - 2)
+                                load_epoch_rewards_task.delay(check_epoch - 2)
 
-                                if initial_run:
-                                    while not task.ready():
-                                        time.sleep(1)
+                                #if initial_run:
+                                #    while not task.ready():
+                                #        time.sleep(1)
 
                             snapshot_creation_timestamp = GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * (slot - (SLOTS_PER_EPOCH * SNAPSHOT_CREATION_EPOCH_DELAY)))
                             snapshot_creation_date = timezone.make_aware(datetime.fromtimestamp(snapshot_creation_timestamp), timezone=timezone.utc)

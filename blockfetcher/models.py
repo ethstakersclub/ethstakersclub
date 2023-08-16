@@ -5,6 +5,25 @@ from django.db.models import Index
 from django.db.models.functions import Lower
 
 
+# Validator status
+STATUS_CHOICES = [
+    ('pending_initialized', 'Pending Initialized'),
+    ('pending_queued', 'Pending Queued'),
+    ('active_ongoing', 'Active Ongoing'),
+    ('active_exiting', 'Active Exiting'),
+    ('active_slashed', 'Active Slashed'),
+    ('exited_unslashed', 'Exited Unslashed'),
+    ('exited_slashed', 'Exited Slashed'),
+    ('withdrawal_possible', 'Withdrawal Possible'),
+    ('withdrawal_done', 'Withdrawal Done'),
+    ('active', 'Active'),
+    ('pending', 'Pending'),
+    ('exited', 'Exited'),
+    ('withdrawal', 'Withdrawal'),
+    ('unknown', 'Unknown'),
+]
+
+
 class Validator(models.Model):
     # Validator ID
     validator_id = models.IntegerField(unique=True, db_index=True, primary_key=True)
@@ -13,7 +32,7 @@ class Validator(models.Model):
     public_key = models.CharField(max_length=98, unique=True, db_index=True)
 
     # Validator withdrawal credentials
-    withdrawal_credentials = models.CharField(max_length=66)
+    withdrawal_credentials = models.CharField(max_length=66, db_index=True)
 
     # Validator withdrawal address type - 0 or 1
     withdrawal_type = models.IntegerField(default=0)
@@ -25,22 +44,6 @@ class Validator(models.Model):
     total_withdrawn = models.DecimalField(max_digits=27, decimal_places=0, default=0)
 
     # Validator status
-    STATUS_CHOICES = [
-        ('pending_initialized', 'Pending Initialized'),
-        ('pending_queued', 'Pending Queued'),
-        ('active_ongoing', 'Active Ongoing'),
-        ('active_exiting', 'Active Exiting'),
-        ('active_slashed', 'Active Slashed'),
-        ('exited_unslashed', 'Exited Unslashed'),
-        ('exited_slashed', 'Exited Slashed'),
-        ('withdrawal_possible', 'Withdrawal Possible'),
-        ('withdrawal_done', 'Withdrawal Done'),
-        ('active', 'Active'),
-        ('pending', 'Pending'),
-        ('exited', 'Exited'),
-        ('withdrawal', 'Withdrawal'),
-        ('unknown', 'Unknown'),
-    ]
     status = models.CharField(max_length=19, choices=STATUS_CHOICES, default="unknown")
 
     # Slashed
@@ -168,10 +171,10 @@ class Main(models.Model):
 
 
 class Withdrawal(models.Model):
+    index = models.IntegerField(primary_key=True)
     amount = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     validator = models.IntegerField(db_index=True)
     address = models.CharField(max_length=64)
-    index = models.IntegerField()
     block = models.ForeignKey(Block, on_delete=models.CASCADE, null=True)
 
 
@@ -185,14 +188,6 @@ class AttestationCommittee(models.Model):
 
     class Meta:
         unique_together = [["slot", "index"]]
-        #indexes = [
-        #    GistIndex(fields=['validator_ids'], name="validator_ids_gist_idx", fillfactor=60, opclasses=['gist__intbig_ops'])
-        #]
-
-    #class Meta:
-    #    indexes = [
-    #        GinIndex(fields=['validator_ids']),
-    #    ]
 
 
 class StakingDeposit(models.Model):
@@ -200,7 +195,7 @@ class StakingDeposit(models.Model):
     block_number = models.IntegerField()
     amount = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     public_key = models.CharField(max_length=98, db_index=True)
-    withdrawal_credentials = models.CharField(max_length=66)
+    withdrawal_credentials = models.CharField(max_length=66, db_index=True)
     signature = models.CharField(max_length=194)
     transaction_index = models.IntegerField()
     transaction_hash = models.CharField(max_length=66)
@@ -249,29 +244,11 @@ class ValidatorBalance(models.Model):
     execution_reward = models.DecimalField(max_digits=27, decimal_places=0, default=0)
     missed_attestations = models.IntegerField()
     missed_sync = models.IntegerField()
+    total_deposited = models.DecimalField(max_digits=27, decimal_places=0, default=0)
+    status = models.CharField(max_length=19, choices=STATUS_CHOICES, default="unknown")
 
     class Meta:
         unique_together = [["validator_id", "date"]]
-
-
-class EpochReward(models.Model):
-    validator_id = models.IntegerField(db_index=True)
-    epoch = models.IntegerField(db_index=True)
-
-    attestation_head = models.IntegerField(default=0)
-    attestation_target = models.IntegerField(default=0)
-    attestation_source = models.IntegerField(default=0)
-
-    sync_reward = models.IntegerField(null=True)
-    sync_penalty = models.IntegerField(null=True)
-
-    block_attestations = models.IntegerField(null=True)
-    block_sync_aggregate = models.IntegerField(null=True)
-    block_proposer_slashings = models.IntegerField(null=True)
-    block_attester_slashings = models.IntegerField(null=True)
-
-    class Meta:
-        unique_together = [["epoch", "validator_id"]]
 
 
 class SyncCommittee(models.Model):

@@ -1,5 +1,6 @@
 from functools import wraps
 import time
+from ethstakersclub.settings import VALIDATOR_MONITORING_LIMIT
 
 
 def calculate_activation_epoch(validators_ahead ,validator_update_epoch, validators_per_epoch, status, activation_epoch):
@@ -21,3 +22,9 @@ def measure_execution_time(func):
         print(f"Execution time for {func.__name__}: {execution_time} seconds")
         return result
     return wrapper
+
+
+def get_validator_limit(request):
+    if request.user.is_authenticated and request.user.profile.allowed_validator_count > VALIDATOR_MONITORING_LIMIT:
+        return request.user.profile.allowed_validator_count
+    return VALIDATOR_MONITORING_LIMIT

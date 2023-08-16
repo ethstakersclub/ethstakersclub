@@ -40,7 +40,8 @@ class CustomUser(AbstractUser):
 
 class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    watched_validators = models.CharField(max_length=4200, default="")
+    watched_validators = models.CharField(max_length=100000, default="")
+    allowed_validator_count = models.IntegerField(default=0)
 
 
 @receiver(post_save, sender=CustomUser)

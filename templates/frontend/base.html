@@ -46,7 +46,7 @@
 <script src="{% static 'js/vendor/chart.js' %}"></script>
 <script src="{% static 'js/vendor/jquery.min.js' %}"></script>
 <script src="{% static 'js/utility.js' %}"></script>
-<script src="{% static 'js/vendor/bootstrap.min.js' %}" integrity="sha512-7rusk8kGPFynZWu26OKbTeI+QPoYchtxsmPeBqkHIEXJxeun4yJ4ISYe7C6sz9wdxeE1Gk3VxsIWgCZTc+vX3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/vendor/bootstrap_4_6_2.bundle.min..js' %}"></script>
 <script src="{% static 'js/vendor/axios.min.js' %}" integrity="sha512-uMtXmF28A2Ab/JJO2t/vYhlaa/3ahUOgj1Zf27M5rOo8/+fcTUVH0/E0ll68njmjrLqOBjXM3V9NiPFL5ywWPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 {% if DEBUG %}
@@ -134,6 +134,10 @@
             $("#navbarSupportedContent").toggleClass("show");
         });
     });
+</script>
+
+<script>
+    const currentSlot = {{ current_slot }};
 </script>
 
 <script>

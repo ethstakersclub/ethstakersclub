@@ -30,8 +30,8 @@
         <div>
             <table-component :data="dashboardSyncCommitteeParticipationsJsonData" :columns="dashboardSyncCommitteeParticipationsTableColumns"
             :key-prop="'slot'" :allow-sort="false" fetch-strategy="slot_range" :api-endpoint="'/api/sync_committee_participation'"
-            :item-count="{{ sync_duty_count }}" :query-parameters="[{validators: '{{ validator_array }}' }]" :rows-per-page-options="[50]"
-            :live-update="true" :title="'Sync-Committee - Live Monitoring'" />
+            :item-count="{{ sync_duty_count }}" :rows-per-page-options="[50]" :live-update="true" :title="'Sync-Committee - Live Monitoring'"
+            :query-parameters="[{include_pending: true }]" />
         </div>
       </div>
     </div>
@@ -83,8 +83,11 @@
             },
           },
           { key: 'validator_id', label: 'Validator ID',
+            renderFunction: (value, item) => {
+              return value.join(', ');
+            },
             link: (value, item) => {
-              return '/validator/' + value;
+              return '/validator/' + value.join(',');
             },
           },
           { key: 'block_timestamp', label: 'Time',
@@ -94,15 +97,51 @@
           },
           { key: 'participated', label: 'Participated',
             renderFunction: (value, item) => {
-              return value == "yes" ? "Participated" : value == "no" ? "Missed" : value == "pending" ? "Pending" : "No Block Proposed"
+              if(value == "pending")
+                return "Pending"
+              else if(value == "no_block_proposed")
+                return "No Block Proposed"
+              else if(value.length == 1)
+                return value[0] == 1 ? "Participated" : "Missed"
+              else if(value.length > 1){
+                if (value.every((element) => element === 1)) {
+                  return "Participated [" + value.join(", ") + "]";
+                }
+                else if (value.every((element) => element === 0)) {
+                  return "Missed [" + value.join(", ") + "]";
+                }
+                else if (value.length > 1) {
+                  return "Partial [" + value.join(", ") + "]";
+                }
+                return value
+              }
             },
             renderClass: (value, item) => {
+              let labelColor = "";
+              if(value == "pending")
+                labelColor = "pending"
+              else if(value == "no_block_proposed")
+                labelColor = "no_block_proposed"
+              else if(value.length == 1)
+                labelColor = value[0] == 1 ? "participated" : "missed"
+              else if(value.length > 1){
+                if (value.every((element) => element === 1)) {
+                  labelColor = "participated"
+                }
+                else if (value.every((element) => element === 0)) {
+                  labelColor = "missed"
+                }
+                else if (value.length > 1) {
+                  labelColor = "missed_partial"
+                }
+              }
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': value == "yes",
-                'bg-danger': value == "no",
-                'bg-warning': value == "no_block_proposed",
-                'bg-primary': value == "pending",
+                'bg-success': labelColor == "participated",
+                'bg-danger': labelColor == "missed",
+                'bg-danger-2': labelColor == "missed_partial",
+                'bg-warning': labelColor == "no_block_proposed",
+                'bg-primary': labelColor == "pending",
               };
             },
           },
