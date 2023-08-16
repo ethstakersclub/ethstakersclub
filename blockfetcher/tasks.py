@@ -81,7 +81,7 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward_task(self, epoch)
     try:
         epoch_aggregate_missed_attestations_and_average_mev_reward(epoch)
     except Exception as e:
-        logger.warning("An error occurred while aggregating the missed attestations for epoch %s.", epoch, exc_info=True)
+        logger.warning("An error occurred while aggregating the missed attestations for epoch %s (%e).", epoch, e, exc_info=True)
         self.retry(countdown=5)
 
 

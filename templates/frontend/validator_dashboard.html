@@ -544,6 +544,9 @@
 
 
 <script>
+  const checkmark = "✓";
+  const cross = "✗";
+  
   const App = {
     data() {
       return {
@@ -825,17 +828,33 @@
               return res.trim();
             },
           },
-          { key: 'attestations', label: 'Attestet',
+          { key: 'missed_attestations', label: 'Attestet',
             renderFunction: (value, item) => {
-              percent = (value - item.missed_attestations) / value * 100;
-              return ("Attestet (" + parseInt(percent) + "%)")
+              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
+              return ("Attestet (" + parseInt(percent_attestet) + "%)")
             },
             renderClass: (value, item) => {
+              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': ((value - item.missed_attestations) / value * 100) >= 95,
-                'bg-warning': ((value - item.missed_attestations) / value * 100) >= 60 && ((value - item.missed_attestations) / value * 100) < 95,
-                'bg-danger': ((value - item.missed_attestations) / value * 100) < 60,
+                'bg-success': percent_attestet >= 95,
+                'bg-warning': percent_attestet >= 60 && percent_attestet < 95,
+                'bg-danger': percent_attestet < 60,
+              };
+            },
+          },
+          { key: 'positive_reward_attestations', label: 'Positive Reward',
+            renderFunction: (value, item) => {
+              const percent_positive = value / item.attestation_count * 100;
+              return (parseInt(value) + "/" + parseInt(item.attestation_count) +" (" + parseInt(percent_positive) + "%)")
+            },
+            renderClass: (value, item) => {
+              const percent_positive = value / item.attestation_count * 100;
+              return {
+                'status-label rounded-pill px-2 text-nowrap': true,
+                'bg-success': percent_positive >= 95,
+                'bg-warning': percent_positive >= 60 && percent_positive < 95,
+                'bg-danger': percent_positive < 60,
               };
             },
           },
@@ -876,14 +895,17 @@
               else if(value.length == 1)
                 return value[0] == 1 ? "Participated" : "Missed"
               else if(value.length > 1){
+                // Replace 1 with checkmark and 0 with cross
+                const participated_validators = value.map((v) => (v === 1 ? checkmark : cross)).join(", ");
+                
                 if (value.every((element) => element === 1)) {
-                  return "Participated [" + value.join(", ") + "]";
+                  return "Participated [" + participated_validators + "]";
                 }
                 else if (value.every((element) => element === 0)) {
-                  return "Missed [" + value.join(", ") + "]";
+                  return "Missed [" + participated_validators + "]";
                 }
                 else if (value.length > 1) {
-                  return "Partial [" + value.join(", ") + "]";
+                  return "Partial [" + participated_validators + "]";
                 }
                 return value
               }
@@ -914,6 +936,11 @@
                 'bg-warning': labelColor == "no_block_proposed",
                 'bg-primary': labelColor == "pending",
               };
+            },
+            tooltipFunction: (value, item) => {
+              return value.map((value, index) => {
+                return `${item.validator_id[index]}[${value === 1 ? checkmark : cross}]`;
+              }).join(", ");
             },
           },
           { key: 'participation', label: 'Participation',

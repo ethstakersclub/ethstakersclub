@@ -33,7 +33,7 @@
           <table-component :data="attestationsJsonData" :columns="attestationsTableColumns"
            :allow-sort="false" :key-prop="'slot'" :live-update="true" :title="'Attestation Live Monitoring'"
            {% if validator_count <= 300 %}
-           :rows-per-page-options="[{% if validator_count <= 1 %}10{% elif validator_count <= 2 %}15{% elif validator_count <= 3 %}20{% elif validator_count <= 4 %}25{% elif validator_count <= 5 %}30{% elif validator_count <= 6 %}35{% elif validator_count <= 7 %}40{% elif validator_count <= 8 %}45{% else %}50{% endif %}]"
+           :rows-per-page-options="[{% if validator_count <= 1 %}5{% elif validator_count <= 2 %}10{% elif validator_count <= 3 %}15{% elif validator_count <= 4 %}20{% elif validator_count <= 5 %}25{% elif validator_count <= 6 %}30{% elif validator_count <= 7 %}35{% elif validator_count <= 8 %}40{% elif validator_count <= 9 %}{% else %}50{% endif %}]"
            :item-count="{{ total_attestations }}" :api-endpoint="'/api/attestations'" :key-prop2="'validator_id'"
            :slot-range="{% if validator_count == 1 %}320{% elif validator_count < 3 %}160{% elif validator_count < 6 %}80{% elif validator_count < 11 %}40{% else %}32{% endif %}"
            {% else %}

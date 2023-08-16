@@ -1,6 +1,7 @@
 from celery import shared_task
 from datetime import datetime
-from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT
+from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, \
+                                    BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, ACTIVE_STATUSES
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee, ValidatorBalance
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -12,11 +13,13 @@ from django.db.models import Count, Func, F, Sum, Max
 from django.core.cache import cache
 from blockfetcher.beacon_api import BeaconAPI
 import json
+from api.util import measure_execution_time
 
 logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
 
 
+@measure_execution_time
 def get_attestation_efficiency(epoch, validator_count):
     logger.info(f"calculate attestation efficiency for {validator_count} validators...")
     attestation_committees = list(AttestationCommittee.objects.filter(slot__gte=(epoch - ATTESTATION_EFFICIENCY_EPOCHS)*SLOTS_PER_EPOCH,
@@ -205,7 +208,7 @@ def count_proposals(slot):
     logger.info("count proposed blocks")
 
     proposals_per_validator = Block.objects.filter(slot_number__lte=slot).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
-    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator}
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
 
     return proposals_per_validator_dict
 
@@ -214,7 +217,7 @@ def count_successful_proposals(slot):
     logger.info("count successfully proposed blocks")
 
     proposals_per_validator = Block.objects.filter(slot_number__lte=slot, empty=0).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
-    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator}
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
 
     return proposals_per_validator_dict
 
@@ -223,7 +226,7 @@ def count_proposals_after_merge(slot):
     logger.info("count proposals after merge")
 
     proposals_per_validator = Block.objects.filter(slot_number__lte=slot).exclude(block_number=None).values('proposer').annotate(count=Count('proposer')).values_list('proposer', 'count')
-    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator}
+    proposals_per_validator_dict = {int(proposer): int(count) for proposer, count in proposals_per_validator if proposer is not None}
 
     return proposals_per_validator_dict
 
@@ -232,7 +235,7 @@ def calculate_highest_reward(slot):
     logger.info("calculate highest (mev) reward")
 
     max_reward_per_validator = Block.objects.filter(slot_number__lte=slot).exclude(block_number=None).values('proposer').annotate(max_reward=Max('total_reward')).values_list('proposer', 'max_reward')
-    max_reward_per_validator_dict = {int(proposer): int(max_reward) for proposer, max_reward in max_reward_per_validator}
+    max_reward_per_validator_dict = {int(proposer): int(max_reward) for proposer, max_reward in max_reward_per_validator if proposer is not None}
 
     return max_reward_per_validator_dict
 
@@ -323,8 +326,6 @@ def process_validators(slot):
     withdrawals_per_validator_dict = count_withdrawals_per_validator(slot)
 
     total_deposited_dict = calculate_total_deposited_by_validator()
-
-    ACTIVE_STATUSES = frozenset({"active_ongoing", "active_exiting", "active_slashed"})
 
     pending_validators, active_validators = 0, 0
     cache_data = {}

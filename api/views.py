@@ -14,9 +14,12 @@ from api.util import calculate_activation_epoch, measure_execution_time, get_val
 def get_blocks(request):
     range_value = int(request.GET.get('range', 10))
     direction_value = str(request.GET.get('direction', "descending"))
-    from_slot = request.GET.get('from_slot')
-    omit_pending = bool(request.GET.get('omit_pending', False))
 
+    from_slot = request.GET.get('from_slot')
+    if from_slot is None:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'The from_slot parameter is required.'})
+    
+    omit_pending = bool(request.GET.get('omit_pending', False))
     if omit_pending is not True and omit_pending is not False:
         omit_pending = False
 
@@ -52,6 +55,9 @@ def get_blocks(request):
         return JsonResponse({
             'success': True,
             'data': blocks,
+            'from_slot': from_slot,
+            'range': range_value,
+            'direction': direction_value,
         })
 
 
@@ -62,7 +68,10 @@ class ArrayLength(models.Func):
 def get_epochs(request):
     range_value = int(request.GET.get('range', 10))
     direction_value = str(request.GET.get('direction', "descending"))
+
     from_epoch = request.GET.get('from_epoch')
+    if from_epoch is None:
+        return JsonResponse({'success': False, 'status': 'error', 'message': 'The from_epoch parameter is required.'})
 
     if from_epoch == 'head':
         latest_block = Block.objects.filter(proposer__isnull=False).order_by("-slot_number").first()
@@ -109,6 +118,9 @@ def get_epochs(request):
         return JsonResponse({
             'success': True,
             'data': epochs,
+            'from_epoch': from_epoch,
+            'range': range_value,
+            'direction': direction_value,
         })
 
 
@@ -507,8 +519,9 @@ def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
             block_sync_aggregate = sum(v[6] for v in epoch_attestation_rewards)
             block_proposer_slashings = sum(v[7] for v in epoch_attestation_rewards)
             block_attester_slashings = sum(v[8] for v in epoch_attestation_rewards)
-            attestations = sum(1 for v in epoch_attestation_rewards if (v[0] + v[1] + v[2]) >= 0)
-            missed_attestations = len(epoch_attestation_rewards) - attestations
+            positive_reward_attestations = sum(1 for v in epoch_attestation_rewards if (v[0] + v[1] + v[2]) >= 0)
+            included_attestations = sum(1 for v in epoch_attestation_rewards if v[0] > 0 or v[1] > 0 or v[2] > 0)
+            missed_attestations = len(epoch_attestation_rewards) - included_attestations
             total_reward = head + target + source + sync_reward + sync_penalty + block_attestations + \
                 block_sync_aggregate + block_proposer_slashings + block_attester_slashings
                     
@@ -524,8 +537,9 @@ def get_rewards_and_penalties(index_numbers, epoch_from, epoch_to):
                     'block_sync_aggregate': block_sync_aggregate,
                     'block_proposer_slashings': block_proposer_slashings,
                     'block_attester_slashings': block_attester_slashings,
-                    'attestations': attestations,
+                    'positive_reward_attestations': positive_reward_attestations,
                     'missed_attestations': missed_attestations,
+                    'attestation_count': len(epoch_attestation_rewards),
                     'total_reward': total_reward,
                 }
             )
