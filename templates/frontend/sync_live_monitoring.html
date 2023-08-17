@@ -59,6 +59,9 @@
 {% block script %}
 {% include 'frontend/vue_table.html' %}
 <script>
+  const checkmark = "✓";
+  const cross = "✗";
+
   const App = {
     data() {
       return {
@@ -104,14 +107,17 @@
               else if(value.length == 1)
                 return value[0] == 1 ? "Participated" : "Missed"
               else if(value.length > 1){
+                // Replace 1 with checkmark and 0 with cross
+                const participated_validators = value.map((v) => (v === 1 ? checkmark : cross)).join(", ");
+                
                 if (value.every((element) => element === 1)) {
-                  return "Participated [" + value.join(", ") + "]";
+                  return "Participated [" + participated_validators + "]";
                 }
                 else if (value.every((element) => element === 0)) {
-                  return "Missed [" + value.join(", ") + "]";
+                  return "Missed [" + participated_validators + "]";
                 }
                 else if (value.length > 1) {
-                  return "Partial [" + value.join(", ") + "]";
+                  return "Partial [" + participated_validators + "]";
                 }
                 return value
               }
@@ -132,17 +138,29 @@
                   labelColor = "missed"
                 }
                 else if (value.length > 1) {
-                  labelColor = "missed_partial"
+                  labelColor = "missed"
                 }
               }
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-success': labelColor == "participated",
                 'bg-danger': labelColor == "missed",
-                'bg-danger-2': labelColor == "missed_partial",
                 'bg-warning': labelColor == "no_block_proposed",
                 'bg-primary': labelColor == "pending",
               };
+            },
+            tooltipFunction: (value, item) => {
+              if(value == "pending")
+                return "Pending"
+              else if(value == "no_block_proposed")
+                return "No Block Proposed"
+              else if(value.length == 1)
+                return value[0] == 1 ? "Participated" : "Missed"
+              else if(value.length > 1){
+                return value.map((value, index) => {
+                  return `${item.validator_id[index]}[${value === 1 ? checkmark : cross}]`;
+                }).join(", ");
+              }
             },
           },
           { key: 'participation', label: 'Participation',

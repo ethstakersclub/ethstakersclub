@@ -938,9 +938,17 @@
               };
             },
             tooltipFunction: (value, item) => {
-              return value.map((value, index) => {
-                return `${item.validator_id[index]}[${value === 1 ? checkmark : cross}]`;
-              }).join(", ");
+              if(value == "pending")
+                return "Pending"
+              else if(value == "no_block_proposed")
+                return "No Block Proposed"
+              else if(value.length == 1)
+                return value[0] == 1 ? "Participated" : "Missed"
+              else if(value.length > 1){
+                return value.map((value, index) => {
+                  return `${item.validator_id[index]}[${value === 1 ? checkmark : cross}]`;
+                }).join(", ");
+              }
             },
           },
           { key: 'participation', label: 'Participation',
