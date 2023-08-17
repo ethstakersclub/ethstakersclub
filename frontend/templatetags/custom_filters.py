@@ -42,3 +42,13 @@ def elide_string(string):
         return string
     else:
         return string[:4] + "..." + string[-5:]
+    
+
+@register.filter
+def hex_to_string(value):
+    try:
+        hex_value = value[2:]  # Remove '0x' prefix
+        byte_string = bytes.fromhex(hex_value)
+        return byte_string.rstrip(b'\x00').decode('utf-8')  # Remove trailing zeros and decode
+    except:
+        return None

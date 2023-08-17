@@ -85,7 +85,7 @@ th:first-child {
             </tr>
             <tr>
                 <th><i id="graffiti-tooltip" class="far fa-question-circle question-tooltip"></i>Graffiti</th>
-                <td>{{ slot.graffiti }}</td>
+                <td>{% with slot.graffiti|hex_to_string as graffiti_string %}{% if graffiti_string %}{{ graffiti_string }}{% endif %}{% endwith %}</td>
             </tr>
             <tr class="divider">
                 <th><i id="block-root-tooltip" class="far fa-question-circle question-tooltip"></i>Block Root</th>
