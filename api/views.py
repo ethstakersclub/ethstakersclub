@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from django.shortcuts import render
-from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, SyncCommittee
+from blockfetcher.models import Validator, AttestationCommittee, ValidatorBalance, Block, Withdrawal, Epoch, SyncCommittee, Main
 from django.core.cache import cache
 from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP
 from django.utils import timezone
@@ -727,7 +727,7 @@ def api_get_validators(request):
 
 
 def get_validators(cursor, range_value):
-    validators = Validator.objects.order_by("-validator_id")[cursor:cursor+range_value].values('public_key', 'validator_id', 'activation_epoch')
+    validators = Validator.objects.order_by("-validator_id")[cursor:cursor+range_value].values('public_key', 'validator_id', 'activation_epoch', 'activation_eligibility_epoch')
 
     active_validators_count = get_active_validators_count_from_cache()
     validators_per_epoch = int(active_validators_count / CHURN_LIMIT_QUOTIENT)
@@ -739,11 +739,23 @@ def get_validators(cursor, range_value):
     validator_dict = {v["validator_id"]: v for v in validators}
     validator_data = []
     for c in cached_validators:
-        validator_data.append({"public_key": validator_dict[c["validator_id"]]["public_key"], "validator_id": c["validator_id"], "balance": c["balance"] / 10**9,
+        validator_data.append({"public_key": validator_dict[c["validator_id"]]["public_key"],
+                               "validator_id": c["validator_id"],
+                               "balance": c["balance"] / 10**9,
                                "status": c["status"], "efficiency": c["efficiency"],
                                "reward": float(c["execution_reward"] / 10**18) + ((c["total_consensus_balance"] / 1000000000) - BALANCE_PER_VALIDATOR),
                                "efficiency": c["efficiency"] / 100,
                                "activation_epoch": calculate_activation_epoch(int(c["pre_val"]) ,validator_update_epoch, validators_per_epoch, c["status"], validator_dict[c["validator_id"]]["activation_epoch"]),
+                               "activation_eligibility_epoch": validator_dict[c["validator_id"]]["activation_eligibility_epoch"],
+                               "exit_epoch": c["e_epoch"],
+                               "withdrawable_epoch": c["w_epoch"],
+                               "total_execution_reward": float(c["execution_reward"] / 10**18),
+                               "total_consensus_reward": (c["total_consensus_balance"] / 1000000000) - BALANCE_PER_VALIDATOR,
+                               "sync_committee_participation_count": c["sync_p_count"],
+                               "proposal_count": c["proposals"],
+                               "successful_proposals": c["s_proposals"],
+                               "deposited": c["deposited"],
+                               "pending_validators_queue_ahead": c["pre_val"],
                               })
     
     return validator_data
@@ -848,3 +860,71 @@ def get_blocks_by_proposer(index_numbers, cursor_value, range_value, direction_v
             entry["fee_recipient"] = entry["mev_reward_recipient"]
 
     return blocks
+
+
+@measure_execution_time
+def get_current_beacon_state(request):
+    main_object = Main.objects.get(id=1)
+
+    response = {
+        'success': True,
+        'current_epoch': get_current_epoch_from_cache(),
+        'current_slot': get_current_slot_from_cache(),
+        'finalized_checkpoint_epoch': main_object.finalized_checkpoint_epoch,
+        'finalized_checkpoint_root': main_object.finalized_checkpoint_root,
+        'justified_checkpoint_epoch': main_object.justified_checkpoint_epoch,
+        'justified_checkpoint_root': main_object.justified_checkpoint_root,
+    }
+
+    return JsonResponse(response)
+
+
+@measure_execution_time
+def api_get_validators_by_id(request):
+    validator_ids = extract_validator_ids(request)
+    if isinstance(validator_ids, JsonResponse):
+        return validator_ids
+
+    validators = get_validators_by_id(validator_ids)
+
+    response = {
+        'success': True,
+        'data': validators,
+    }
+
+    return JsonResponse(response)
+
+
+def get_validators_by_id(validator_ids):
+    validators = Validator.objects.filter(validator_id__in=validator_ids)\
+        .values("public_key", "activation_epoch", "validator_id", "withdrawal_credentials", "activation_eligibility_epoch")
+    validator_dict = {v["validator_id"]: v for v in validators}
+
+    cached_validators = get_validators_from_cache(validator_ids)
+
+    active_validators_count = get_active_validators_count_from_cache()
+    validators_per_epoch = int(active_validators_count / CHURN_LIMIT_QUOTIENT)
+    validator_update_epoch = int(get_validator_update_slot_from_cache() / SLOTS_PER_EPOCH)
+
+    validator_data = []
+    for c in cached_validators:
+        validator_data.append({"public_key": validator_dict[c["validator_id"]]["public_key"],
+                               "validator_id": c["validator_id"],
+                               "balance": c["balance"] / 10**9,
+                               "status": c["status"], "efficiency": c["efficiency"],
+                               "reward": float(c["execution_reward"] / 10**18) + ((c["total_consensus_balance"] / 1000000000) - BALANCE_PER_VALIDATOR),
+                               "efficiency": c["efficiency"] / 100,
+                               "activation_epoch": int(calculate_activation_epoch(int(c["pre_val"]) ,validator_update_epoch, validators_per_epoch, c["status"], validator_dict[c["validator_id"]]["activation_epoch"])),
+                               "activation_eligibility_epoch": int(validator_dict[c["validator_id"]]["activation_eligibility_epoch"]),
+                               "exit_epoch": c["e_epoch"],
+                               "withdrawable_epoch": c["w_epoch"],
+                               "total_execution_reward": float(c["execution_reward"] / 10**18),
+                               "total_consensus_reward": (c["total_consensus_balance"] / 1000000000) - BALANCE_PER_VALIDATOR,
+                               "sync_committee_participation_count": c["sync_p_count"],
+                               "proposal_count": c["proposals"],
+                               "successful_proposals": c["s_proposals"],
+                               "deposited": c["deposited"],
+                               "pending_validators_queue_ahead": c["pre_val"],
+                              })
+    
+    return validator_data
