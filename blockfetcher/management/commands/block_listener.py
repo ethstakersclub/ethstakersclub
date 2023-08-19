@@ -73,6 +73,16 @@ def create_sync_committee(finalized_check_epoch):
                 sync_committee.save()
 
 
+def wait_for_task_queue_to_clear():
+    tasks_count = get_scheduled_tasks_count()
+    while tasks_count > MAX_TASK_QUEUE:
+            print_status('info', f'task queue filled up ({tasks_count}), waiting...')
+            time.sleep(1)
+            tasks_count = get_scheduled_tasks_count()
+    
+    return tasks_count
+
+
 def setup_epochs(main_row, last_slot_processed, loop_epoch):
     last_epoch_slot_processed = main_row.last_epoch_slot_processed
 
@@ -85,9 +95,9 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
         while True:
             try:
                 if int(slot / SLOTS_PER_EPOCH) != loop_epoch:
+                    tasks_count = wait_for_task_queue_to_clear()
+
                     load_epoch_task.delay(int(slot / SLOTS_PER_EPOCH), slot)
-                    
-                    tasks_count = get_scheduled_tasks_count()
 
                     epochs_processed += 1
 
@@ -100,11 +110,6 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
                         main_row.save()
 
                     loop_epoch = int(slot / SLOTS_PER_EPOCH)
-
-                    while tasks_count > MAX_TASK_QUEUE:
-                        print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                        time.sleep(1)
-                        tasks_count = get_scheduled_tasks_count()
                 break
             except KeyboardInterrupt:
                 return
@@ -122,6 +127,8 @@ def setup_staking_deposits(main_row, head_block):
     for i in range(last_staking_deposits_update_block - 60, head_block + 1, 1000):
         while True:
             try:
+                wait_for_task_queue_to_clear()
+
                 to_block = i+1000
                 if(to_block > head_block):
                     to_block = head_block
@@ -135,13 +142,6 @@ def setup_staking_deposits(main_row, head_block):
                     main_row.save()
 
                     print_status('info', f"Staking deposit blocks processed: {i}")
-
-                tasks_count = get_scheduled_tasks_count()
-                while tasks_count > MAX_TASK_QUEUE:
-                        print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                        time.sleep(1)
-                        tasks_count = get_scheduled_tasks_count()
-
                 break
             except KeyboardInterrupt:
                 return
@@ -219,6 +219,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
     for slot in range(last_slot_processed, head_slot+1):
         while True:
             try:
+                tasks_count = wait_for_task_queue_to_clear()
+
                 if int(slot / SLOTS_PER_EPOCH) != loop_epoch:
                     with transaction.atomic():
                         check_epoch = int(slot / SLOTS_PER_EPOCH)
@@ -241,12 +243,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')
-                                #task = load_epoch_rewards_task.delay(check_epoch - 2)
                                 load_epoch_rewards_task.delay(check_epoch - 2)
-
-                                #if initial_run:
-                                #    while not task.ready():
-                                #        time.sleep(1)
 
                             snapshot_creation_timestamp = GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * (slot - (SLOTS_PER_EPOCH * SNAPSHOT_CREATION_EPOCH_DELAY)))
                             snapshot_creation_date = timezone.make_aware(datetime.fromtimestamp(snapshot_creation_timestamp), timezone=timezone.utc)
@@ -275,7 +272,6 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                         main_row.save()
 
                 load_block_task.delay(slot, loop_epoch)
-                tasks_count = get_scheduled_tasks_count()
 
                 if slot % MEV_FETCH_DELAY_SLOTS == 0 and last_mev_reward_fetch_slot < slot - 2:
                     fetch_mev_rewards_task.delay(last_mev_reward_fetch_slot, slot - 2)
@@ -289,10 +285,6 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                     elapsed_time = time.time() - start_time
                     slots_per_second = (slots_processed - tasks_count) / elapsed_time
                     print_status('info', f"Slots per second: {slots_per_second}, Slots processed: {slots_processed}")
-                while tasks_count > MAX_TASK_QUEUE:
-                    print_status('info', f'task queue filled up ({tasks_count}), waiting...')
-                    time.sleep(1)
-                    tasks_count = get_scheduled_tasks_count()
                 break
 
             except KeyboardInterrupt:
