@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, process_validators_task,\
                                load_block_task, make_balance_snapshot_task, load_epoch_rewards_task, \
-                               fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task
+                               fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task, \
+                               get_current_client_release_task
 import json
 import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
@@ -240,6 +241,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                 if sec_since_last_balance_update > 200:
                                     last_balance_update_time = time.time()
                                     process_validators_task.delay(slot)
+                                    get_current_client_release_task.delay()
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')

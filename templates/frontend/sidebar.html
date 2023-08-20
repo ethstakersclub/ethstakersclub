@@ -5,6 +5,8 @@
     </a>
     <a href="{% url 'sync_live_monitoring_empty' %}" class='sub-navigation-elm {% if current_page == "sync_live_monitoring" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-file-signature"></i>Sync Duty Live Monitoring</span>
     </a>
+    <a href="{% url 'show_clients' %}" class='sub-navigation-elm {% if current_page == "clients" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-hdd"></i>Clients</span>
+    </a>
     <a href="{% url 'show_slots' %}" class='navigation-elm {% if current_page == "slots" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-layer-group"></i><span class='text-short'>Slots</span></span>
     </a>
     <a href="{% url 'show_epochs' %}" class='navigation-elm {% if current_page == "epochs" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fas fa-fw fa-shield-alt"></i><span class='text-short'>Epochs</span></span>

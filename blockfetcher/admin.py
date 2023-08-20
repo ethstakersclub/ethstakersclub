@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Withdrawal, StakingDeposit, Validator, Block, AttestationCommittee, Epoch, Main, ValidatorBalance, MissedAttestation, SyncCommittee, MissedSync
+from .models import EthClient, Withdrawal, StakingDeposit, Validator, Block, AttestationCommittee, Epoch, Main, ValidatorBalance, MissedAttestation, SyncCommittee, MissedSync
 
 
 class StakingDepositAdmin(admin.ModelAdmin):
@@ -19,3 +19,4 @@ admin.site.register(SyncCommittee)
 admin.site.register(MissedSync)
 admin.site.register(StakingDeposit, StakingDepositAdmin)
 admin.site.register(Withdrawal, WithdrawalAdmin)
+admin.site.register(EthClient)

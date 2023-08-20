@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit
+from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit, EthClient
 import time
 from django.core.cache import cache
 from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY
@@ -698,6 +698,30 @@ def sync_live_monitoring(request, index):
         'chart_data': json.dumps(chart_data),
     }
     view = render(request, 'frontend/sync_live_monitoring.html', context)
+
+    return view
+
+
+@measure_execution_time
+def show_clients(request):
+    eth_clients = list(EthClient.objects.all().order_by("-usage_percentage").values("client_name", "repository_owner", "repo_name", "type", "version", "release_timestamp", "usage_percentage"))
+        
+    for entry in eth_clients:
+        entry["release_timestamp"] = entry["release_timestamp"].isoformat()
+    
+    execution_clients = [c for c in eth_clients if c["type"] == "execution"]
+    consensus_clients = [c for c in eth_clients if c["type"] == "consensus"]
+    other_clients = [c for c in eth_clients if c["type"] == "other"]
+    
+    context = {
+        'clients': json.dumps(eth_clients),
+        'execution_clients_json': json.dumps(execution_clients),
+        'consensus_clients_json': json.dumps(consensus_clients),
+        'other_clients_json': json.dumps(other_clients),
+        'execution_clients': execution_clients,
+        'consensus_clients': consensus_clients,
+    }
+    view = render(request, 'frontend/clients.html', context)
 
     return view
 

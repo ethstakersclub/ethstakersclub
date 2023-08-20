@@ -111,5 +111,68 @@ PENDING_STATUSES = frozenset({"pending_queued", "pending_initialized"})
 EXITED_STATUSES = frozenset({"exited_unslashed", "exited_slashed", "withdrawal_possible", "withdrawal_done"})
 EXITING_STATUSES = frozenset({"active_exiting", "active_slashed"})
 
+eth_clients = [
+    {
+        "client_name": "Nethermind",
+        "repository_owner": "NethermindEth",
+        "repo_name": "nethermind",
+        "type": "execution"
+    },
+    {
+        "client_name": "Geth",
+        "repository_owner": "ethereum",
+        "repo_name": "go-ethereum",
+        "type": "execution"
+    },
+    {
+        "client_name": "Erigon",
+        "repository_owner": "ledgerwatch",
+        "repo_name": "erigon",
+        "type": "execution"
+    },
+    {
+        "client_name": "Besu",
+        "repository_owner": "hyperledger",
+        "repo_name": "besu",
+        "type": "execution"
+    },
+    {
+        "client_name": "Teku",
+        "repository_owner": "ConsenSys",
+        "repo_name": "teku",
+        "type": "consensus"
+    },
+    {
+        "client_name": "Prysm",
+        "repository_owner": "prysmaticlabs",
+        "repo_name": "prysm",
+        "type": "consensus"
+    },
+    {
+        "client_name": "Nimbus",
+        "repository_owner": "status-im",
+        "repo_name": "nimbus-eth2",
+        "type": "consensus"
+    },
+    {
+        "client_name": "Lodestar",
+        "repository_owner": "ChainSafe",
+        "repo_name": "lodestar",
+        "type": "consensus"
+    },
+    {
+        "client_name": "Lighthouse",
+        "repository_owner": "sigp",
+        "repo_name": "lighthouse",
+        "type": "consensus"
+    },
+    {
+        "client_name": "MEV-Boost",
+        "repository_owner": "flashbots",
+        "repo_name": "mev-boost",
+        "type": "other"
+    }
+]
+
 from settings import *
 from ethstakersclub.monitoring_ranks import MONITORING_RANKS

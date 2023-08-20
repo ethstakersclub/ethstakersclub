@@ -1,0 +1,201 @@
+{% extends "frontend/base.html" %}
+
+{% block title %}Clients - {% endblock %}
+
+{% block content %}
+<div class='dashboard-container' id="app">
+  {% include 'frontend/sidebar.html' with current_page='clients' %}
+  <div class="row m-0" style="padding-top:80px;">
+    <div class="col-md-6 col-12 mb-1">
+      <canvas class="mr-2" style="height:350px;max-height:400px;margin:auto;" id="barchart-consensus"></canvas>
+      <p class="footer-text" style="font-size:80%;">Data provided by <a class="footer-link" href="https://github.com/sigp/blockprint/blob/main/docs/api.md" target="_blank">Sigma Prime's Blockprint</a></p>
+    </div>
+    <div class="col-md-6 col-12 mb-1">
+      <canvas class="mr-2" style="height:350px;max-height:400px;margin:auto;" id="barchart-execution"></canvas>
+      <p class="footer-text" style="font-size:80%;">Data provided by <a class="footer-link" href="https://ethernodes.org" target="_blank">Ethernodes</a></p>
+    </div>
+  </div>
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+    <div class="col-md-6 col-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Consensus Clients</div>
+        <div>
+          <table-component :data="consensusClientsJsonData" :columns="consensusClientsTableColumns" :rows-per-page-options="[50]"
+          :allow-sort="true" :key-prop="'client_name'" />
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Execution Clients</div>
+        <div>
+          <table-component :data="executionClientsJsonData" :columns="executionClientsTableColumns" :rows-per-page-options="[50]"
+          :allow-sort="true" :key-prop="'client_name'" />
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+      <div class="stats-element">
+        <div class="element-header">Other</div>
+        <div>
+          <table-component :data="otherJsonData" :columns="otherTableColumns" :rows-per-page-options="[50]"
+          :allow-sort="true" :key-prop="'client_name'" />
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class='element-header social'></div>
+  {% include 'frontend/footer.html' %}
+</div>
+
+{% endblock %}
+
+{% block script %}
+{% include 'frontend/vue_table.html' %}
+<script>
+  const App = {
+    data() {
+      return {
+        rowsPerPage: [50],
+        consensusClientsJsonData: [],
+        consensusClientsTableColumns: [
+          { key: 'client_name', label: 'Name',
+            renderFunction: (value, item) => {
+              return value;
+            },
+            link: (value, item) => {
+              return 'https://github.com/' + item.repository_owner + "/" + item.repo_name;
+            },
+          },
+          { key: 'version', label: 'Current Version',
+            renderFunction: (value, item) => {
+              let res = value;
+              if(value[0] !== 'v')
+                res = 'v' + res;
+              return res;
+            },
+            renderClass: (value, item) => {
+              return {
+                'status-label rounded-pill px-2 text-nowrap bg-primary': true,
+              };
+            },
+          },
+          { key: 'release_timestamp', label: 'Release Time',
+            renderFunction: (value, item) => {
+              return calculateTimeDifference(value)
+            },
+          },
+          { key: 'usage_percentage', label: 'Usage Percentage',
+            renderFunction: (value, item) => {
+              return value.toFixed(4) + "%";
+            },
+          },
+        ],
+        executionClientsJsonData: [],
+        executionClientsTableColumns: [],
+        otherJsonData: [],
+        otherTableColumns: [],
+      };
+    },
+    mounted() {
+      this.consensusClientsJsonData = JSON.parse('{{ consensus_clients_json|safe }}');
+      this.executionClientsJsonData = JSON.parse('{{ execution_clients_json|safe }}');
+      this.executionClientsTableColumns = this.consensusClientsTableColumns;
+      this.otherJsonData = JSON.parse('{{ other_clients_json|safe }}');
+      this.otherTableColumns = this.consensusClientsTableColumns.filter(item => item.key !== 'usage_percentage');
+    },
+  }
+  const app = Vue.createApp(App);
+  app.directive('tippy', {
+    mounted(el, binding) {
+      const content = binding.value;
+      if(content != '' && content != null)
+        tippy(el, {
+          content: content,
+        });
+    },
+  });
+  app.component("table-component", tableComponent);
+  app.mount("#app");
+
+
+  Chart.defaults.borderColor = '#ffffff07';
+  Chart.defaults.color = '#ddd';
+
+  const data_consensus = {
+    labels: [{% for a in consensus_clients %}"{{ a.client_name }}",{% endfor %}],
+    datasets: [
+      {
+        data: [{% for a in consensus_clients %}{{ a.usage_percentage }},{% endfor %}],
+        borderColor: [{% for a in consensus_clients %}{% if a.usage_percentage < 50 and a.usage_percentage > 25 %}"rgb(153, 102, 255)"{% elif a.usage_percentage < 25 %}"rgb(54, 162, 235)"{% else %}"#d37142"{% endif %},{% endfor %}],
+        backgroundColor: [{% for a in consensus_clients %}{% if a.usage_percentage < 50 and a.usage_percentage > 25 %}"#362c66"{% elif a.usage_percentage < 25 %}"#163a5f"{% else %}"#7a4f31"{% endif %},{% endfor %}],
+        label: "Usage Percentage"
+      }
+    ]
+  };
+  
+  var ctx = document.getElementById("barchart-consensus").getContext("2d");
+  var efficiencyChart = new Chart(ctx, {
+    type: 'bar',
+    data: data_consensus,
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Consensus Client Usage Distribution'
+        }
+      },
+    },
+  });
+
+  const data_execution = {
+    labels: [{% for a in execution_clients %}"{{ a.client_name }}",{% endfor %}],
+    datasets: [
+      {
+        data: [{% for a in execution_clients %}{{ a.usage_percentage }},{% endfor %}],
+        borderColor: [{% for a in execution_clients %}{% if a.usage_percentage < 50 and a.usage_percentage > 25 %}"rgb(153, 102, 255)"{% elif a.usage_percentage < 25 %}"rgb(54, 162, 235)"{% else %}"#d37142"{% endif %},{% endfor %}],
+        backgroundColor: [{% for a in execution_clients %}{% if a.usage_percentage < 50 and a.usage_percentage > 25 %}"#362c66"{% elif a.usage_percentage < 25 %}"#163a5f"{% else %}"#7a4f31"{% endif %},{% endfor %}],
+        label: "Usage Percentage"
+      }
+    ]
+  };
+  
+  var ctx = document.getElementById("barchart-execution").getContext("2d");
+  var efficiencyChart = new Chart(ctx, {
+    type: 'bar',
+    data: data_execution,
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      elements: {
+        bar: {
+          borderWidth: 2,
+        }
+      },
+      plugins: {
+        legend: {
+          display: false,
+        },
+        title: {
+          display: true,
+          text: 'Execution Client Usage Distribution'
+        }
+      },
+    },
+  });
+</script>
+{% endblock %}

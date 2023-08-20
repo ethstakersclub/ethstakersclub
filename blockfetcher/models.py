@@ -271,3 +271,13 @@ class MissedSync(models.Model):
         index_together = [
             ["validator_id", "slot"],
         ]
+
+
+class EthClient(models.Model):
+    client_name = models.CharField(max_length=50, primary_key=True)
+    repository_owner = models.CharField(max_length=50)
+    repo_name = models.CharField(max_length=50)
+    type = models.CharField(max_length=30)
+    version = models.CharField(max_length=30)
+    release_timestamp = models.DateTimeField(null=True, blank=True)
+    usage_percentage = models.FloatField(default=0)

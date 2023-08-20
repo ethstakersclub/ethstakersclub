@@ -23,6 +23,7 @@ import timeout_decorator
 from blockfetcher.beacon_api import BeaconAPI
 from django.db import transaction
 from blockfetcher.task_process_validators import process_validators
+from blockfetcher.task_get_current_client_release import get_current_client_release
 from blockfetcher.cache import *
 
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
@@ -100,6 +101,15 @@ def make_balance_snapshot_task(self, slot, timestamp):
         make_balance_snapshot(slot, timestamp)
     except Exception as e:
         logger.warning("An error occurred while updating the validators %s.", slot, exc_info=True)
+        self.retry(countdown=5)
+
+
+@shared_task(bind=True, soft_time_limit=960, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+def get_current_client_release_task(self):
+    try:
+        get_current_client_release()
+    except Exception as e:
+        logger.warning("An error occurred while updating the client releases.", exc_info=True)
         self.retry(countdown=5)
 
 
