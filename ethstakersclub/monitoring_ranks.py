@@ -14,25 +14,25 @@ MONITORING_RANKS = [
     {
     "name": "Shark",
     "image": "/static/img/pug_shark.png",
-    "up-to-validator-count": 25,
+    "up-to-validator-count": 35,
     "background_size": "120px",
     },
     {
     "name": "Whale",
     "image": "/static/img/pug_whale.png",
-    "up-to-validator-count": 50,
+    "up-to-validator-count": 70,
     "background_size": "130px",
     },
     {
     "name": "Killer Whale",
     "image": "/static/img/pug_killer_whale.png",
-    "up-to-validator-count": 100,
+    "up-to-validator-count": 150,
     "background_size": "130px",
     },
     {
     "name": "Dragon",
     "image": "/static/img/pug_dragon.png",
-    "up-to-validator-count": 200,
+    "up-to-validator-count": 250,
     "background_size": "130px",
     },
     {

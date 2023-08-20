@@ -245,8 +245,10 @@ def get_efficiency_and_dashboard_head_info(cached_validators):
 
 
 def get_monitoring_rank(validator_count):
-    for m in reversed(MONITORING_RANKS):
-        if m["up-to-validator-count"] <= validator_count:
+    if not isinstance(validator_count, int):
+        validator_count = 0
+    for m in MONITORING_RANKS:
+        if validator_count <= m["up-to-validator-count"]:
             return m
 
 
