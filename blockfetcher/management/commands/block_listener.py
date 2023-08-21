@@ -90,6 +90,10 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
     if last_epoch_slot_processed < last_slot_processed:
         last_epoch_slot_processed = last_slot_processed
 
+    last_epoch_slot_processed = last_epoch_slot_processed - (SLOTS_PER_EPOCH * 3)
+    if last_epoch_slot_processed < 0:
+        last_epoch_slot_processed = 0
+
     epochs_processed = 0
     start_time = time.time()
     for slot in range(last_epoch_slot_processed, (main_row.finalized_checkpoint_epoch * SLOTS_PER_EPOCH)):
@@ -138,7 +142,7 @@ def setup_staking_deposits(main_row, head_block):
 
                 last_staking_deposits_update_block=i
 
-                if i % 20 == 0:
+                if (i / 1000) % 20 == 0:
                     main_row.last_staking_deposits_update_block = i
                     main_row.save()
 
