@@ -18,7 +18,9 @@ sudo apt install python3-venv python3-pip libpq-dev postgresql postgresql-contri
 sudo systemctl start postgresql.service
 ```
 
-In addition to this you need:
+Now there are two choices: you can either sync up the whole chain or start from a later slot. Going for the latter significantly cuts down on the storage and sync time you need (a few minutes compared to days), which makes it a better pick for development purposes. Plus, it saves you from having to deal with a full consensus archive node. Keep in mind that if you'd rather not use a full archive node, just make sure to select a slot after you've started syncing the node to make sure it's available. For instructions on how to start from a later slot see the section "[Start sync from a later slot](#start-sync-from-a-later-slot)". Otherwise omit this step.
+
+In the case of a full mainnet sync you need:
 - a fully synced beacon archive node
 e.g. you can launch lighthouse using `--http --slots-per-restore-point 128 --disable-backfill-rate-limiting --genesis-backfill --historic-state-cache-size 4 --reconstruct-historic-states`.
 This needs ~2.5TB of storage (HDD storage is good enough for the freezer_db).
@@ -97,6 +99,12 @@ python3 manage.py migrate --database=userdata
 ### Create a superuser on the user database to be able to access the admin panel
 ```bash
 python3 manage.py createsuperuser --database=userdata
+```
+
+### Start sync from a later slot
+This command is only needed if you don't want to sync the whole chain, such as for development purposes. To setup the initial synchronization to start from a later slot, execute the following command, wherein `<slot>` represents the slot number from which to start the sync (e.g. 7000000):
+```bash
+python3 manage.py start_sync_from <slot>
 ```
 
 ### Start the Eth Beaconchain Explorer server. This should only be used in development; for production use e.g. gunicorn+nginx:
