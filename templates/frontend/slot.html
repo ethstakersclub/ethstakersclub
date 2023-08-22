@@ -1,7 +1,7 @@
 {% extends "frontend/base.html" %}
 {% load custom_filters %}
 
-{% block title %}Slot #{{ slot.slot_number }} - {% endblock %}
+{% block meta_title_twitter %}{% block meta_title %}{% block title %}Slot #{{ slot.slot_number }} - {% endblock %}{% endblock %}{% endblock %}
 
 {% block head %}
 <style>

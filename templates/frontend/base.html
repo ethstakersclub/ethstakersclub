@@ -7,6 +7,21 @@
     <title>{% block title %}{% endblock %}EthStakers.club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <meta name="keywords" content="Ethereum block explorer, Beacon chain explorer, ethereum validator monitoring, staking, ethereum blockchain explorer" />
+    <meta name="description" content="Explore Ethereum Beacon Chain data, monitor validators, and track staking activity on EthStakers Club." />
+    <meta property="og:title" content="{% block meta_title %}{% endblock %}EthStakers Club - Ethereum Beacon Chain Explorer and Validator Monitoring" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo_bg.png' %}" />
+    <meta property="og:description" content="Explore Ethereum Beacon Chain data, monitor validators, and track staking activity on EthStakers Club." />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta property="og:site_name" content="EthStakers Club" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:site" content="@EthstakersClub" />
+    <meta name="twitter:title" content="{% block meta_title_twitter %}{% endblock %}EthStakers Club - Ethereum Beacon Chain Explorer and Validator Monitoring" />
+    <meta property="twitter:description" content="Explore Ethereum Beacon Chain data, monitor validators, and track staking activity on EthStakers Club." />
+    <meta property="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo_bg.png' %}" />
+    <meta name="format-detection" content="telephone=no" />
+
     <link rel="apple-touch-icon" sizes="57x57" href="{% static 'img/favicon/apple-icon-57x57.png' %}">
     <link rel="apple-touch-icon" sizes="60x60" href="{% static 'img/favicon/apple-icon-60x60.png' %}">
     <link rel="apple-touch-icon" sizes="72x72" href="{% static 'img/favicon/apple-icon-72x72.png' %}">

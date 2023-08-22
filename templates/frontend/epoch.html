@@ -1,7 +1,7 @@
 {% extends "frontend/base.html" %}
 {% load custom_filters %}
 
-{% block title %}Epoch #{{ epoch.epoch }} - {% endblock %}
+{% block meta_title_twitter %}{% block meta_title %}{% block title %}Epoch #{{ epoch.epoch }} - {% endblock %}{% endblock %}{% endblock %}
 
 {% block head %}
 <style>

@@ -2,7 +2,7 @@
 {% load static %}
 {% load custom_filters %}
 
-{% block title %}{% if not dashboard %}Validator #{{ validator_overview.0.validator_id }}{% else %}Dashboard{% endif %} - {% endblock %}
+{% block meta_title_twitter %}{% block meta_title %}{% block title %}{% if not dashboard %}Validator #{{ validator_overview.0.validator_id }}{% else %}Dashboard{% endif %} - {% endblock %}{% endblock %}{% endblock %}
 
 {% block content %}
 <div id="app" class="h-100">
