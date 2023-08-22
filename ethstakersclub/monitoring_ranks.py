@@ -50,7 +50,7 @@ MONITORING_RANKS = [
     {
     "name": "Shenlong",
     "image": "/static/img/pug_shenlong.png",
-    "up-to-validator-count": 2000,
+    "up-to-validator-count": 33000,
     "background_size": "130px",
     },
 ]
