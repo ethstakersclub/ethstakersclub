@@ -78,9 +78,10 @@ def get_current_client_release():
 
                 obj, created = EthClient.objects.update_or_create(
                     client_name=eth_client["client_name"],
-                    version=latest_version,
-                    release_timestamp=release_date,
-                    defaults={'repository_owner': owner,
+                    defaults={
+                              'version': latest_version,
+                              'release_timestamp': release_date,
+                              'repository_owner': owner,
                               'repo_name': repo,
                               'type': eth_client["type"]},
                 )
