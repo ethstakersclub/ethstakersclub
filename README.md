@@ -1,6 +1,9 @@
-# Ethstakers.club
+# Ethstakers.club: Your Open-Source Ethereum Beacon Chain Explorer
 
-The Ethstakers.club Explorer is a tool designed to monitor validators, slots, epochs and much more on the Ethereum Beacon Chain. Currently, there is only a single other beacon explorer available, which is a point of centralization and prone to problems if it experiences any issues or downtime.
+![GitHub](https://img.shields.io/github/license/ethstakersclub/ethstakersclub)
+![django4.2](https://img.shields.io/badge/django-4.2-green.svg)
+
+Welcome to the Ethstakers.club Explorer, a powerful tool designed to monitor validators, slots, epochs, and more on the Ethereum Beacon Chain. Unlike other beacon explorers, we prioritize openness and accessibility, leveraging freely available software like PostgreSQL and Chart.js. Our mission is to empower the Ethereum community by offering a transparent, open-source solution that doesn't rely on proprietary systems.
 
 <div align="center">
   <img src="screenshot/screenshot.jpg" alt="Screenshot" width="92%">
@@ -11,9 +14,10 @@ Unlike the competition, our explorer leverages completely freely available softw
 This project also provides benefits to researchers and individuals in need of unlimited API access. By utilizing freely available software instead of proprietary solutions, the project enables these users to easily launch a local instance. Moreover, all API functions can be effortlessly extended to accommodate any desired functionality.
 
 ## So, why was the project launched?
-The Ethstakers.club Explorer was launched with the aim of providing a reliable and transparent solution for monitoring validators on the Ethereum Beacon Chain. The Ethereum Beacon Chain is a critical component of Ethereum's transition to a proof-of-stake consensus mechanism. Validators play a crucial role in maintaining the security and integrity of the Ethereum network. Therefore, it is essential for the community to have access to accurate and up-to-date information about these validators.
 
-Existing beacon chain explorers often rely on proprietary and expensive software solutions, making them less accessible to the wider Ethereum community. By utilizing freely available software we aim to remove these barriers and provide an open-source, cost-effective solution that anyone can use.
+The Ethereum Beacon Chain is pivotal in Ethereum's transition to a proof-of-stake consensus mechanism. To ensure the network's security and integrity, validators play a crucial role.
+
+Our Ethstakers.club Explorer was born to provide accurate, real-time information about these validators in an open, reliable manner. Traditional explorers often use expensive proprietary solutions, making them less accessible. We break down these barriers by embracing open-source software, making monitoring validators accessible to all.
 
 ## Key Features
 The Ethstakers.club Explorer offers a range of features that make it a valuable tool for monitoring validators on the Beacon Chain. These features include:
