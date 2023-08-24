@@ -31,23 +31,23 @@ This needs ~2.5TB of storage (HDD storage is good enough for the freezer_db).
 ## Installation
 Follow the steps below to install and set up the Ethstakers.club Explorer:
 
-### Create a Python virtual environment:
+### 1. Create a Python virtual environment:
 ```bash
 python3 -m venv .venv/ethstakersclub
 ```
 
-### Activate the virtual environment:
+### 2. Activate the virtual environment:
 ```bash
 source .venv/ethstakersclub/bin/activate
 ```
 
-### Clone the ethstakersclub repository:
+### 3. Clone the ethstakersclub repository:
 ```bash
 git clone https://github.com/ethstakersclub/ethstakersclub.git
 cd ethstakersclub
 ```
 
-### Install the required Python packages:
+### 4. Install the required Python packages:
 ```bash
 pip3 install -r requirements.txt
 ```
@@ -57,7 +57,7 @@ for the captcha you also need:
 sudo apt-get install libz-dev libjpeg-dev libfreetype6-dev python-dev-is-python3
 ```
 
-### Set up the PostgreSQL database:
+### 5. Set up the PostgreSQL database:
 ```bash
 sudo -u postgres psql
 ```
@@ -81,7 +81,7 @@ ALTER DATABASE ethstakersclub OWNER TO myproject_user;
 
 Exit the PostgreSQL shell by typing \q or exit.
 
-### Settings
+### 6. Settings
 To configure the development settings, you need to copy the `settings.py.example` file to `settings.py` and update the values accordingly. Use the command below to accomplish this:
 ```bash
 cp settings.py.example settings.py
@@ -89,36 +89,36 @@ cp settings.py.example settings.py
 
 After copying the file, open `settings.py` in a text editor and modify the necessary values to match your development environment. Make sure to provide the correct configuration settings such as database credentials and any other relevant information specific to your deployment or development environment. Also the settings for other chains can be configured there.
 
-### Apply database migrations
+### 7. Apply database migrations
 ```bash
 python3 manage.py makemigrations
 python3 manage.py migrate
 python3 manage.py migrate --database=userdata
 ```
 
-### Create a superuser on the user database to be able to access the admin panel
+### 8. Create a superuser on the user database to be able to access the admin panel
 ```bash
 python3 manage.py createsuperuser --database=userdata
 ```
 
-### Start sync from a later slot
+### 9. Start sync from a later slot
 This command is only needed if you don't want to sync the whole chain, such as for development purposes. To setup the initial synchronization to start from a later slot, execute the following command, wherein `<slot>` represents the slot number from which to start the sync (e.g. 7000000):
 ```bash
 python3 manage.py start_sync_from <slot>
 ```
 
-### Start the Eth Beaconchain Explorer server. This should only be used in development; for production use e.g. gunicorn+nginx:
+### 10. Start the Eth Beaconchain Explorer server. This should only be used in development; for production use e.g. gunicorn+nginx:
 ```bash
 python3 manage.py runserver
 ```
 
-### Start the Celery worker
+### 11. Start the Celery worker
 To optimize performance, you have the option to specify the concurrency parameter, especially if your machine has limited cores (e.g., `--concurrency=20`). Otherwise, Celery will automatically spawn a process for each available core.
 ```bash
 celery -A ethstakersclub worker --loglevel=info --without-gossip --without-mingle --max-tasks-per-child=80
 ```
 
-### Start the block listener. This command will start the initial sync.
+### 12. Start the block listener. This command will start the initial sync.
 
 The synchronization process comprises several stages:
 
