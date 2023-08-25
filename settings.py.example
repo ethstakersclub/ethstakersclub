@@ -81,7 +81,7 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
 # Celery configuration
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 360}
+CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 800}
 CELERYD_MAX_TASKS_PER_CHILD = 1
 CELERYD_PREFETCH_MULTIPLIER = 1
 CELERY_ACKS_LATE = 1
