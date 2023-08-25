@@ -409,20 +409,6 @@ def load_block(slot, epoch):
                 Withdrawal.objects.bulk_create(withdrawal_objects, update_conflicts=True, 
                                                 update_fields=["amount", "validator", "address", "block"], 
                                                 unique_fields=["index"])
-                '''
-                validator_ids = [int(withdrawal["validator_index"]) for withdrawal in withdrawals]
-                validator_total_withdrawals = (
-                    Withdrawal.objects.filter(validator__in=validator_ids)
-                    .values("validator")
-                    .annotate(total=Sum("amount"))
-                )
-
-                validator_updates = [
-                    Validator(validator_id=withdrawal["validator"], total_withdrawn=decimal.Decimal(withdrawal["total"]))
-                    for withdrawal in validator_total_withdrawals
-                ]
-                Validator.objects.bulk_update(validator_updates, fields=["total_withdrawn"])
-                '''
 
             new_block.block_number = execution_block["number"]
             new_block.timestamp = timezone.make_aware(datetime.fromtimestamp(execution_block["timestamp"]), timezone=timezone.utc)
