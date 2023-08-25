@@ -94,6 +94,9 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
     if last_epoch_slot_processed < 0:
         last_epoch_slot_processed = 0
 
+    # fetch previous epoch as well
+    loop_epoch = loop_epoch - 1
+
     epochs_processed = 0
     start_time = time.time()
     for slot in range(last_epoch_slot_processed, (main_row.finalized_checkpoint_epoch * SLOTS_PER_EPOCH)):
@@ -124,12 +127,15 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
 
 
 def setup_staking_deposits(main_row, head_block):
-    last_staking_deposits_update_block = main_row.last_staking_deposits_update_block
+    # recheck the previous 60 block as well to ensure there were no reorgs or anything after shutdown
+    last_staking_deposits_update_block = main_row.last_staking_deposits_update_block - 60
 
     if last_staking_deposits_update_block < DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK - 1:
         last_staking_deposits_update_block = DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK - 1
+    if last_staking_deposits_update_block < 0:
+        last_staking_deposits_update_block = 0
 
-    for i in range(last_staking_deposits_update_block - 60, head_block + 1, 1000):
+    for i in range(last_staking_deposits_update_block, head_block + 1, 1000):
         while True:
             try:
                 wait_for_task_queue_to_clear()
@@ -212,6 +218,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
     if last_mev_reward_fetch_slot < MERGE_SLOT - 1:
         last_mev_reward_fetch_slot = MERGE_SLOT - 1
+    if last_mev_reward_fetch_slot < 0:
+        last_mev_reward_fetch_slot = 0
 
     if initial_run:
         print_status('info', 'Started up: filling epochs')
