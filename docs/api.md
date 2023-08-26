@@ -208,7 +208,7 @@ GET /api/attestations/?validators=1,2,3,4,5,6,7,8,9,10,11,12&from_slot=7000000&t
 ## API Endpoint `/api/attestations_for_slots`
 
 ### Description
-The `/api/attestations_for_slots` API function allows you to retrieve attestation data for a given set of validators within a specified range of slots. It differs from /api/attestations by providing attestation data for individual slots and includes the attestation distance values as an array for each validator ID that attestet during the specified slots. Therefore it is more suitable for a huge validator set.
+The `/api/attestations_for_slots` API function allows you to retrieve attestation data for a given set of validators within a specified range of slots. It differs from /api/attestations by providing attestation data for individual slots and includes the attestation distance values as an array for each validator ID that attested during the specified slots. Therefore it is more suitable for a huge validator set.
 
 ### Parameters
 1. `validators` (required)
