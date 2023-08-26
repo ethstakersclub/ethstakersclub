@@ -20,6 +20,7 @@ from blockfetcher.management.commands.test_get_pending_celery_tasks import get_s
 from blockfetcher.util import print_status
 import sseclient
 from blockfetcher.beacon_api import BeaconAPI
+import traceback
 
 
 count = 0
@@ -306,6 +307,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                 return
             except Exception as e:
                 print_status('error', e)
+                print(traceback.format_exc())
                 continue
     
     return head_slot, loop_epoch, last_balance_update_time
@@ -316,7 +318,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         main_row, created = Main.objects.get_or_create(id=1, defaults={
-            'last_balance_snapshot_planned_date': timezone.make_aware(datetime.fromtimestamp(0), timezone=timezone.utc),
+            'last_balance_snapshot_planned_date': timezone.make_aware(datetime.fromtimestamp(0), timezone=timezone.utc).date(),
             'finalized_checkpoint_epoch': 0,
             'justified_checkpoint_epoch': 0,
             })
