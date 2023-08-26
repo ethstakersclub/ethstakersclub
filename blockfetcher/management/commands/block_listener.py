@@ -50,6 +50,9 @@ def load_current_state(main_row):
 
 def create_sync_committee(finalized_check_epoch):
     sync_check_epoch = finalized_check_epoch + 256
+    if sync_check_epoch < 0:
+        sync_check_epoch = 0
+
     sync_check_slot = finalized_check_epoch * SLOTS_PER_EPOCH
     if sync_check_slot < ALTAIR_EPOCH * SLOTS_PER_EPOCH:
         sync_check_slot = ALTAIR_EPOCH * SLOTS_PER_EPOCH
