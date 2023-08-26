@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from blockfetcher.models import Main, Block, Validator, Withdrawal, AttestationCommittee, Epoch, ValidatorBalance, MissedAttestation
+from blockfetcher.models import *
 
 
 class Command(BaseCommand):
@@ -16,3 +16,7 @@ class Command(BaseCommand):
             ValidatorBalance.objects.filter(pk__in=ValidatorBalance.objects.all().values_list('pk')[:10000]).delete()
         for i in range(0, MissedAttestation.objects.all().count(), 10000):
             MissedAttestation.objects.filter(pk__in=MissedAttestation.objects.all().values_list('pk')[:10000]).delete()
+        Main.objects.all().delete()
+        StakingDeposit.objects.all().delete()
+        SyncCommittee.objects.all().delete()
+        MissedSync.objects.all().delete()
