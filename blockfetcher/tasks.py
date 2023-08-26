@@ -167,8 +167,10 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
         .order_by('slot_number').first().slot_number
     lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp_target)\
         .order_by('slot_number').first().slot_number
-    
+
     highest_block_at_date = Block.objects.filter(slot_number__lte=highest_slot_at_date, empty=0).order_by('-slot_number').first().block_number
+    if highest_block_at_date == None and highest_slot_at_date == 0:
+        highest_block_at_date = 0
     
     if ValidatorBalance.objects.filter(date=timestamp_target).exists() and force_run == False:
         logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(highest_slot_at_date))
