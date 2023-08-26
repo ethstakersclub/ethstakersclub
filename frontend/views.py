@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit, EthClient
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY, MIN_PER_EPOCH_CHURN_LIMIT
 import json
 from django.utils import timezone
 import datetime
@@ -489,6 +489,9 @@ def landing_page(request):
     exiting_validators = int(latest_epoch_stats.exiting_validators)
 
     validator_onboarding_per_epoch = int(active_validators / CHURN_LIMIT_QUOTIENT)
+    if validator_onboarding_per_epoch < MIN_PER_EPOCH_CHURN_LIMIT:
+        validator_onboarding_per_epoch = MIN_PER_EPOCH_CHURN_LIMIT
+
     next_validator_onboarding_increase = ((validator_onboarding_per_epoch + 1) * CHURN_LIMIT_QUOTIENT) - (validator_onboarding_per_epoch * CHURN_LIMIT_QUOTIENT)
 
     finish_activation_queue_seconds = (pending_validators / validator_onboarding_per_epoch) * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
