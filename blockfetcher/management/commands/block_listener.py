@@ -94,9 +94,6 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
     if last_epoch_slot_processed < 0:
         last_epoch_slot_processed = 0
 
-    # fetch previous epoch as well
-    loop_epoch = loop_epoch - 1
-
     epochs_processed = 0
     start_time = time.time()
     for slot in range(last_epoch_slot_processed, (main_row.finalized_checkpoint_epoch * SLOTS_PER_EPOCH)):
@@ -200,6 +197,9 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
         loop_epoch = int(last_slot_processed / SLOTS_PER_EPOCH)
 
+        # fetch previous epoch as well
+        loop_epoch = loop_epoch - 1
+
         create_sync_committee(loop_epoch - 256)
 
         SNAPSHOT_CREATION_EPOCH_DELAY = SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
@@ -257,7 +257,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
                             if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
                                 print_status('info', 'load epoch rewards...')
-                                load_epoch_rewards_task.delay(check_epoch - 2)
+                                if check_epoch - 2 >= 0:
+                                    load_epoch_rewards_task.delay(check_epoch - 2)
 
                             snapshot_creation_timestamp = GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * (slot - (SLOTS_PER_EPOCH * SNAPSHOT_CREATION_EPOCH_DELAY)))
                             snapshot_creation_date = timezone.make_aware(datetime.fromtimestamp(snapshot_creation_timestamp), timezone=timezone.utc)
