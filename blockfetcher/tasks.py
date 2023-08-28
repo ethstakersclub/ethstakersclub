@@ -86,6 +86,15 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward_task(self, epoch)
         self.retry(countdown=5)
 
 
+@shared_task(bind=True, soft_time_limit=120, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+def epoch_validator_statistics_task(self, epoch):
+    try:
+        epoch_validator_statistics(epoch)
+    except Exception as e:
+        logger.warning("An error occurred while calculating validator statistics for epoch %s (%e).", epoch, e, exc_info=True)
+        self.retry(countdown=5)
+
+
 @shared_task(bind=True, soft_time_limit=800, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
 def process_validators_task(self, slot):
     try:
@@ -294,7 +303,20 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
     epoch_object.average_block_reward = average_block_reward
     epoch_object.timestamp = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * epoch * SLOTS_PER_EPOCH)), timezone=timezone.utc)
 
+    epoch_object.save()
+
+    MissedAttestation.objects.bulk_create(missed_attestation_to_create, batch_size=1024, ignore_conflicts=True)
+    if len(existing_missed_attestations_for_epoch) > 0:
+        logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
+        MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
+
+
+@transaction.atomic
+def epoch_validator_statistics(epoch):
     logger.info("creating validator statistics %s.", epoch)
+
+    epoch_object = Epoch.objects.get(epoch=epoch)
+
     validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH))
 
     status_list = [v["status"] for v in validators["data"]]
@@ -307,11 +329,6 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
     epoch_object.validators_status_json = dict(status_counts)
 
     epoch_object.save()
-
-    MissedAttestation.objects.bulk_create(missed_attestation_to_create, batch_size=1024, ignore_conflicts=True)
-    if len(existing_missed_attestations_for_epoch) > 0:
-        logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
-        MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
 
 
 @transaction.atomic

@@ -160,7 +160,7 @@ class Main(models.Model):
     last_staking_deposits_update_block = models.IntegerField(default=0)
     last_epoch_slot_processed = models.IntegerField(default=0)
 
-    last_missed_attestation_aggregation_epoch = models.IntegerField(default=0)
+    last_missed_attestation_aggregation_epoch = models.IntegerField(default=-1)
     last_mev_reward_fetch_slot = models.IntegerField(default=0)
 
     finalized_checkpoint_epoch = models.PositiveIntegerField()

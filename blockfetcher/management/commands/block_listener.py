@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, process_validators_task,\
                                load_block_task, make_balance_snapshot_task, load_epoch_rewards_task, \
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task, \
-                               get_current_client_release_task
+                               get_current_client_release_task, epoch_validator_statistics_task
 import json
 import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
@@ -103,10 +103,11 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
     for slot in range(last_epoch_slot_processed, (main_row.finalized_checkpoint_epoch * SLOTS_PER_EPOCH)):
         while True:
             try:
-                if int(slot / SLOTS_PER_EPOCH) != loop_epoch:
+                epoch = int(slot / SLOTS_PER_EPOCH)
+                if epoch != loop_epoch:
                     tasks_count = wait_for_task_queue_to_clear()
 
-                    load_epoch_task.delay(int(slot / SLOTS_PER_EPOCH), slot)
+                    load_epoch_task.delay(epoch, slot)
 
                     epochs_processed += 1
 
@@ -118,7 +119,7 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
                         main_row.last_epoch_slot_processed = slot - SLOTS_PER_EPOCH
                         main_row.save()
 
-                    loop_epoch = int(slot / SLOTS_PER_EPOCH)
+                    loop_epoch = epoch
                 break
             except KeyboardInterrupt:
                 return
@@ -247,6 +248,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                         else:
                             if not Epoch.objects.filter(epoch=check_epoch).exists():
                                 load_epoch(check_epoch, slot)
+                        if check_epoch == 0:
+                            epoch_validator_statistics_task.delay(check_epoch)
 
                         if not reorg:
                             if not initial_run:
@@ -279,6 +282,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                 finalized_check_epoch = check_epoch - 3
                                 for i in range(last_missed_attestation_aggregation_epoch + 1, finalized_check_epoch + 1):
                                     epoch_aggregate_missed_attestations_and_average_mev_reward_task.delay(i)
+                                    epoch_validator_statistics_task.delay(i)
 
                                     last_missed_attestation_aggregation_epoch=i
                                     main_row.last_missed_attestation_aggregation_epoch = last_missed_attestation_aggregation_epoch
