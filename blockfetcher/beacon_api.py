@@ -43,3 +43,7 @@ class BeaconAPI:
     def get_rewards_sync(self, slot, validators):
         endpoint = f"/eth/v1/beacon/rewards/sync_committee/{slot}"
         return self._make_post_request(endpoint, validators)
+
+    def get_beacon_genesis(self):
+        endpoint = "/eth/v1/beacon/genesis"
+        return self._make_request(endpoint)

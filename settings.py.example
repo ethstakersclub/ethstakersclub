@@ -100,6 +100,14 @@ SLOTS_PER_EPOCH = 32
 SECONDS_PER_SLOT = 12
 BALANCE_PER_VALIDATOR = 32
 GENESIS_TIMESTAMP = 1606824023
+
+# Set GENESIS_TIMESTAMP to None to auto detect it on startup. Only recommended for testnets.
+if GENESIS_TIMESTAMP is None:
+    from blockfetcher.beacon_api import BeaconAPI
+    
+    beacon = BeaconAPI(BEACON_API_ENDPOINT)
+    GENESIS_TIMESTAMP = int(beacon.get_beacon_genesis()["data"]["genesis_time"])
+
 MERGE_SLOT = 4700013
 CHURN_LIMIT_QUOTIENT = 65536
 MIN_PER_EPOCH_CHURN_LIMIT = 4
