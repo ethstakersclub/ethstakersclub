@@ -7,7 +7,8 @@ import json
 import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
-                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP
+                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP, \
+                                    EPOCH_REWARDS_HISTORY_DISTANCE
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee
 from datetime import datetime
@@ -264,7 +265,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                     process_validators_task.delay(slot)
                                     get_current_client_release_task.delay()
 
-                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
+                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2 and EPOCH_REWARDS_HISTORY_DISTANCE != 0:
                                 print_status('info', 'load epoch rewards...')
                                 if check_epoch - 2 >= 0:
                                     load_epoch_rewards_task.delay(check_epoch - 2)
