@@ -161,9 +161,11 @@ def setup_staking_deposits(main_row, head_block):
             except Exception as e:
                 print_status('error', e)
                 continue
-
-    main_row.last_staking_deposits_update_block = i
-    main_row.save()
+    try:
+        main_row.last_staking_deposits_update_block = i
+        main_row.save()
+    except:
+        pass
 
 
 def update_head():
