@@ -1,0 +1,72 @@
+<div style="width:100%">
+    <div class="table-container dark-theme mt-0 ml-2 mr-2">
+        <table class="table table-dark mb-0">
+            <tbody>
+            <tr>
+                <td>
+                Status
+                </td>
+                <td>
+                <span class="status-label rounded-pill px-2 text-nowrap {% if validator_info.status == 'active_ongoing' %}bg-success{% else %}bg-primary{% endif %}">{{ validator_info.status }}</span>
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Balance
+                </td>
+                <td>
+                {{ validator_info.balance }} {{ currency_name }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Withdrawal Credentials
+                </td>
+                <td>
+                {{ validator_info.w_cred_type }}
+                <br>
+                {{ validator_info.w_cred_address }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Activation Eligibility Epoch
+                </td>
+                <td>
+                {{ validator_info.activation_eligibility_epoch }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Activation Epoch
+                </td>
+                <td>
+                {{ validator_info.activation_epoch }}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Exit Epoch
+                </td>
+                <td>
+                {{ validator_info.e_epoch }} {% if validator_info.e_epoch == 18446744073709551615 %}(unset){% endif %}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                Withdrawal Epoch
+                </td>
+                <td>
+                {{ validator_info.w_epoch }} {% if validator_info.w_epoch == 18446744073709551615 %}(unset){% endif %}
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
