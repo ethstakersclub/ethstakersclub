@@ -14,15 +14,18 @@ def get_latest_release_info(owner, repo):
     
     response = requests.get(api_url)
     
-    if response.status_code == 200:
-        data = response.json()
-        version = data.get("tag_name")
-        release_date_str = data.get("published_at")
-        release_date = parse(release_date_str).astimezone(timezone.get_current_timezone())
-        return version, release_date
-    else:
-        print(f"Failed to retrieve release information. Status code: {response.status_code}")
-        return None, None
+    try:
+        if response.status_code == 200:
+            data = response.json()
+            version = data.get("tag_name")
+            release_date_str = data.get("published_at")
+            release_date = parse(release_date_str).astimezone(timezone.get_current_timezone())
+            return version, release_date
+    except:
+        pass
+    
+    print(f"Failed to retrieve release information. Status code: {response.status_code}")
+    return None, None
 
 
 def get_consensus_client_diversity():
