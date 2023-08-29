@@ -51,7 +51,7 @@ This feature extends to sync monitoring, offering a similar feature.
 
 ### 🕒 Keeping Tabs on Pending Validators
 
-A table is shown when validators are pending, offering a easy method to track their shift to an active status. This feature ensures you're consistently aware of when validators are coming online.
+A table is shown when validators are pending, offering an easy method to track their shift to an active status. This feature ensures you're consistently aware of when validators are coming online.
 
 <div align="center">
   <img src="screenshot/screenshot_proposal.png" alt="Screenshot" width="92%">
