@@ -586,7 +586,7 @@
                 }).join(", ");
               },
             },
-            { key: 'distance', label: 'Attestet',
+            { key: 'distance', label: 'Attested',
               renderFunction: (value, item) => {
                 const missed_count = value.filter(val => val === 255).length;
                 return (value.length - missed_count) + "/" + value.length
@@ -595,15 +595,15 @@
                 const slotDifference = currentSlot - item.slot;
                 const countMissed = value.filter(val => val === 255).length;
                 
-                percentAttestet = (value.length - countMissed) / value.length * 100
+                percentAttested = (value.length - countMissed) / value.length * 100
                 if(value.length == 0)
-                  percentAttestet = 100
+                  percentAttested = 100
                 return {
                   'status-label rounded-pill px-2 text-nowrap': true,
-                  'bg-danger': percentAttestet < 80 && slotDifference > 5,
-                  'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && slotDifference > 5,
-                  'bg-primary': slotDifference <= 5 && percentAttestet < 95,
-                  'bg-success': percentAttestet >= 95,
+                  'bg-danger': percentAttested < 80 && slotDifference > 5,
+                  'bg-warning': percentAttested < 95 && percentAttested >= 80 && slotDifference > 5,
+                  'bg-primary': slotDifference <= 5 && percentAttested < 95,
+                  'bg-success': percentAttested >= 95,
                 };
               },
             },
@@ -752,18 +752,18 @@
               return res.trim();
             },
           },
-          { key: 'missed_attestations', label: 'Attestet',
+          { key: 'missed_attestations', label: 'Attested',
             renderFunction: (value, item) => {
-              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
-              return ("Attestet (" + parseInt(percent_attestet) + "%)")
+              const percent_attested = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
+              return ("Attested (" + parseInt(percent_attested) + "%)")
             },
             renderClass: (value, item) => {
-              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
+              const percent_attested = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': percent_attestet >= 95,
-                'bg-warning': percent_attestet >= 60 && percent_attestet < 95,
-                'bg-danger': percent_attestet < 60,
+                'bg-success': percent_attested >= 95,
+                'bg-warning': percent_attested >= 60 && percent_attested < 95,
+                'bg-danger': percent_attested < 60,
               };
             },
           },
