@@ -408,7 +408,6 @@
       </div>
     </div>
   </div>
-  <div class='element-header social'></div>
   {% endif %}
   {% if total_monitored_count == 0 %}
 
@@ -427,7 +426,8 @@
       {% endif %}
     </div>
   </div>
-
+  {% else %}
+  <div class='element-header social'></div>
   {% endif %}
   {% endif %}
   {% include 'frontend/footer.html' %}
