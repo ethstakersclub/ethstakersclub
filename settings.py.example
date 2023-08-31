@@ -113,8 +113,10 @@ w3 = Web3(Web3.HTTPProvider(EXECUTION_HTTP_API_ENDPOINT))
 MAX_SLOTS_PER_DAY = 60*60*24/SECONDS_PER_SLOT
 
 # frontend/api
-VALIDATOR_MONITORING_LIMIT=200
+VALIDATOR_MONITORING_LIMIT=2000
+VALIDATOR_MONITORING_LIMIT_MAX=32000 # The maximum number of validators an individual can monitor after an administrator-granted limit increase, solely intended for visual representation.
 CURRENCY_NAME = "ETH"
+CURRENCY_NAME_FULL = "Ethereum"
 ATTESTATION_EFFICIENCY_EPOCHS = 100
 
 # Sync
@@ -126,7 +128,7 @@ MAX_TASK_QUEUE = 100
 MEV_BOOST_RELAYS = {
     "Flashbots": "https://boost-relay.flashbots.net",
     "BloXroute Max Profit": "https://bloxroute.max-profit.blxrbdn.com",
-    "BloXroute Ethical": "https://bloxroute.ethical.blxrbdn.com",
+#    "BloXroute Ethical": "https://bloxroute.ethical.blxrbdn.com",
     "BloXroute Regulated": "https://bloxroute.regulated.blxrbdn.com",
     "Blocknative": "https://builder-relay-mainnet.blocknative.com",
     "Manifold": "https://mainnet-relay.securerpc.com",

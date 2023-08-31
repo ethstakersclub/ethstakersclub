@@ -8,7 +8,14 @@
   {% include 'frontend/sidebar.html' %}
   <div class="row m-0">
     <div class="row m-0 mt-70 mt-xxl-0"><div class="col-md-12" style="padding: 0;">
-
+        <div class="container mt-5 pl-1 pr-1 mb-2" style="max-width:100%;">
+          <div class="row ml-0 mr-0">
+            <div class="col-12" style="text-align: center;">
+              <h2 class="text-light-main">{{ currency_name_full }} Staking Monitoring and Beacon Chain Explorer</h2>
+              <p class="lead text-muted" style="font-size:100%">Your Free and Open-Source Window into the World of Staking and Blockchain Exploration.<br/>No Tracking, No Ads, No Google Analytics - Your Privacy Matters.</p>
+            </div>
+          </div>
+        </div>
         <div style="
         margin:  0 auto;
         margin-top: 70px;
@@ -20,7 +27,7 @@ margin: 0 auto;
 display: block;
 margin-bottom: 60px;
 padding: 14px;
-font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor your validators</a>
+font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor up to {{ validator_monitoring_limit_max|commaSeparatorNumber }} validators</a>
         </div>
 
       <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
