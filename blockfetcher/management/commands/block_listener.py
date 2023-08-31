@@ -8,9 +8,9 @@ import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
                                     SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP, \
-                                    EPOCH_REWARDS_HISTORY_DISTANCE
+                                    EPOCH_REWARDS_HISTORY_DISTANCE, GENESIS_VALIDATORS_ARE_PRE_MINED
 import requests
-from blockfetcher.models import Main, Epoch, SyncCommittee
+from blockfetcher.models import Main, Epoch, SyncCommittee, StakingDeposit
 from datetime import datetime
 from django.utils import timezone
 import time
@@ -47,6 +47,42 @@ def load_current_state(main_row):
     main_row.justified_checkpoint_root = str(current_state["current_justified"]["root"])
 
     main_row.save()
+
+
+def remove_0x_prefix(string):
+    if string[:2] == "0x":
+        return string[2:]
+    else:
+        return string
+
+
+@transaction.atomic
+def process_pre_mined_validator_deposits():
+    print_status('info', "Process pre mined validator deposists")
+
+    validators = beacon.get_validators(state_id="0")
+    
+    deposits_to_create = []
+    for count, val in enumerate(validators["data"]):
+        if str(val["status"]) == "active_ongoing":
+            deposits_to_create.append(StakingDeposit(
+                index=(int(val["index"]) * -1) - 1,
+                block_number=-1,
+                amount=int(val["balance"]),
+                public_key=remove_0x_prefix(str(val["validator"]["pubkey"])),
+                withdrawal_credentials=remove_0x_prefix(str(val["validator"]["withdrawal_credentials"])),
+                signature="",
+                transaction_index=0,
+                transaction_hash="0x0",
+                validator_id=int(val["index"]),
+            ))
+    
+    print_status('info', "Bulk create pre mined validator deposists")
+    
+    StakingDeposit.objects.bulk_create(deposits_to_create, 512, update_conflicts=True, 
+                                                update_fields=["block_number", "amount", "public_key", "withdrawal_credentials", 
+                                                               "signature", "transaction_index", "transaction_hash", "validator_id"], 
+                                                unique_fields=["index"])
 
 
 def create_sync_committee(finalized_check_epoch):
@@ -197,6 +233,12 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
         validator_task = process_validators_task.delay(head_slot)
         while not validator_task.ready():
             time.sleep(1)
+        if GENESIS_VALIDATORS_ARE_PRE_MINED and not StakingDeposit.objects.all().exists():
+            process_pre_mined_validator_deposits()
+
+            validator_task = process_validators_task.delay(head_slot)
+            while not validator_task.ready():
+                time.sleep(1)
 
         # recheck the previous 35 block as well to ensure there were no reorgs after shutdown
         last_slot_processed = main_row.last_slot - 35
