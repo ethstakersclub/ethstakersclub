@@ -583,7 +583,7 @@ def search_validator_results(request):
         elif query_list[0].isdigit():
             validators = Validator.objects.filter(validator_id=int(query_list[0]))[:10].values("public_key", "validator_id")
     else:
-        validators_count, validator_ids, public_keys = split_validator_ids(request.GET.get('query'))
+        validators_count, validator_ids, public_keys = split_validator_ids(request.GET.get('query'), request)
         validators = []
 
         if len(public_keys) > 0:
