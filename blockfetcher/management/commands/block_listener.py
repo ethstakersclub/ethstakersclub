@@ -57,10 +57,10 @@ def remove_0x_prefix(string):
 
 
 @transaction.atomic
-def process_pre_mined_validator_deposits():
+def process_pre_mined_validator_deposits(head_slot):
     print_status('info', "Process pre mined validator deposists")
-
-    validators = beacon.get_validators(state_id="0")
+    
+    validators = beacon.get_validators(state_id="0" if head_slot != 0 else "genesis")
     
     deposits_to_create = []
     for count, val in enumerate(validators["data"]):
@@ -85,7 +85,7 @@ def process_pre_mined_validator_deposits():
                                                 unique_fields=["index"])
 
 
-def create_sync_committee(finalized_check_epoch):
+def create_sync_committee(finalized_check_epoch, head_slot=None):
     sync_check_epoch = finalized_check_epoch + 256
     if sync_check_epoch < 0:
         sync_check_epoch = 0
@@ -93,6 +93,8 @@ def create_sync_committee(finalized_check_epoch):
     sync_check_slot = finalized_check_epoch * SLOTS_PER_EPOCH
     if sync_check_slot < ALTAIR_EPOCH * SLOTS_PER_EPOCH:
         sync_check_slot = ALTAIR_EPOCH * SLOTS_PER_EPOCH
+    if head_slot == 0:
+        sync_check_slot = 'genesis'
     sync_period = sync_check_epoch / 256
     sync_committee, created = SyncCommittee.objects.get_or_create(period=sync_period)
 
@@ -206,7 +208,7 @@ def setup_staking_deposits(main_row, head_block):
 
 
 def update_head():
-    url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/head"
+    url = BEACON_API_ENDPOINT + "/eth/v2/beacon/blocks/head"
     head = requests.get(url).json()
     
     head_slot = int(head["data"]["message"]["slot"])
@@ -234,7 +236,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
         while not validator_task.ready():
             time.sleep(1)
         if GENESIS_VALIDATORS_ARE_PRE_MINED and not StakingDeposit.objects.all().exists():
-            process_pre_mined_validator_deposits()
+            process_pre_mined_validator_deposits(head_slot)
 
             validator_task = process_validators_task.delay(head_slot)
             while not validator_task.ready():
@@ -250,7 +252,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
         # fetch previous epoch as well
         loop_epoch = loop_epoch - 1
 
-        create_sync_committee(loop_epoch - 256)
+        create_sync_committee(loop_epoch - 256, head_slot)
 
         SNAPSHOT_CREATION_EPOCH_DELAY = SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
         MEV_FETCH_DELAY_SLOTS = SLOTS_PER_EPOCH * 2
@@ -332,7 +334,7 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                     last_missed_attestation_aggregation_epoch=i
                                     main_row.last_missed_attestation_aggregation_epoch = last_missed_attestation_aggregation_epoch
 
-                                create_sync_committee(finalized_check_epoch)
+                                create_sync_committee(finalized_check_epoch, head_slot)
 
                         loop_epoch = int(slot / SLOTS_PER_EPOCH)
 

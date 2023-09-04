@@ -29,7 +29,7 @@ def get_blocks(request):
     else:
         from_slot = int(from_slot)
 
-    if from_slot <= 0:
+    if from_slot < 0:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid from_slot provided.'})
 
     if range_value > 100 or range_value < 0:
@@ -79,7 +79,7 @@ def get_epochs(request):
     else:
         from_epoch = int(from_epoch)
 
-    if from_epoch <= 0:
+    if from_epoch < 0:
         return JsonResponse({'success': False, 'status': 'error', 'message': 'Invalid from_epoch provided.'})
 
     if range_value > 100 or range_value < 0:

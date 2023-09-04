@@ -298,7 +298,7 @@ def create_validators(validators):
 def process_validators(slot):
     logger.info("request validators from beacon api")
 
-    validators = beacon.get_validators(state_id=str(slot))
+    validators = beacon.get_validators(state_id=str(slot) if slot != 0 else 'genesis')
 
     create_validators(validators)
 

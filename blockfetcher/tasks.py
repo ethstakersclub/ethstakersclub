@@ -178,7 +178,7 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
         .order_by('slot_number').first().slot_number
 
     highest_block_at_date = Block.objects.filter(slot_number__lte=highest_slot_at_date, empty=0).order_by('-slot_number').first().block_number
-    if highest_block_at_date == None and highest_slot_at_date == 0:
+    if highest_block_at_date == None and highest_slot_at_date <= 1:
         highest_block_at_date = 0
     
     if ValidatorBalance.objects.filter(date=timestamp_target).exists() and force_run == False:
@@ -190,7 +190,7 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
         else:
             logger.error("snapshot slot does not match existing one. new: %s.", highest_slot_at_date)
 
-    validators = beacon.get_validators(state_id=str(highest_slot_at_date))
+    validators = beacon.get_validators(state_id=str(highest_slot_at_date) if slot != 0 else 'genesis')
 
     logger.info("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(highest_slot_at_date))
 
@@ -317,7 +317,7 @@ def epoch_validator_statistics(epoch):
 
     epoch_object = Epoch.objects.get(epoch=epoch)
 
-    validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH))
+    validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH) if epoch != 0 else 'genesis')
 
     status_list = [v["status"] for v in validators["data"]]
     status_counts = Counter(status_list)
@@ -333,7 +333,7 @@ def epoch_validator_statistics(epoch):
 
 @transaction.atomic
 def load_block(slot, epoch):
-    url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/" + str(slot)
+    url = BEACON_API_ENDPOINT + "/eth/v2/beacon/blocks/" + str(slot)
     block = requests.get(url).json()
     logger.info("Process block at slot %s: %s", slot, str(block)[:200])
 
@@ -376,6 +376,7 @@ def load_block(slot, epoch):
         new_block.signature = block["data"]["signature"]
         new_block.graffiti = block["data"]["message"]["body"]["graffiti"]
         new_block.randao_reveal = block["data"]["message"]["body"]["randao_reveal"]
+        new_block.timestamp = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * slot)), timezone=timezone.utc)
 
         url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/" + str(slot) + "/root"
         new_block.block_root = requests.get(url).json()["data"]["root"]
@@ -684,7 +685,7 @@ def load_epoch(epoch, slot):
             )
             for proposal in epoch_proposer["data"]
         ]
-        Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer"], unique_fields=["slot_number"])
+        Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer", "timestamp", "epoch"], unique_fields=["slot_number"])
 
         logger.info(f"load attestation committee at epoch {epoch} slot {slot}")
         epoch_attestations = beacon.get_attestation_committees(slot, epoch)
