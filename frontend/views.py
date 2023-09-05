@@ -201,6 +201,15 @@ def get_validator_info_from_deposit(deposits, validators_per_epoch, active_valid
         public_key = d.public_key
         withdrawal_credentials = d.withdrawal_credentials
         balance += d.amount
+    
+    latest_epoch_stats = Epoch.objects.exclude(active_validators=None).order_by('-epoch').first()
+    pending_validators = int(latest_epoch_stats.pending_validators)
+    validators_ahead_in_queue = pending_validators
+
+    activation_epoch_estimate = calculate_activation_epoch(validators_ahead_in_queue, latest_epoch_stats.epoch, validators_per_epoch, "deposited", 18446744073709551615)
+    if activation_epoch_estimate < 128:
+        activation_epoch_estimate = 128
+    seconds_till_activation = ((activation_epoch_estimate * SLOTS_PER_EPOCH) - (latest_epoch_stats.epoch * SLOTS_PER_EPOCH)) * SECONDS_PER_SLOT
 
     validator_info = {
                 "public_key": public_key,
@@ -214,9 +223,9 @@ def get_validator_info_from_deposit(deposits, validators_per_epoch, active_valid
                 "w_epoch": "pending",
                 "activation_eligibility_epoch": "pending",
                 "activation_epoch": "pending",
-                "activation_epoch_estimate": "pending",
-                "seconds_till_activation": "pending",
-                "pre_val": "pending",
+                "activation_epoch_estimate": activation_epoch_estimate,
+                "seconds_till_activation": seconds_till_activation if seconds_till_activation > 0 else 0,
+                "pre_val": pending_validators,
                 "validators_per_epoch": validators_per_epoch,
                 "next_increase_validators_per_epoch": CHURN_LIMIT_QUOTIENT - (active_validators_count - (validators_per_epoch * CHURN_LIMIT_QUOTIENT)),
                 "staking_deposits": deposits if add_staking_deposits else [],
@@ -577,7 +586,7 @@ def search_validator_results(request):
         elif query_list[0].isdigit():
             validators = Validator.objects.filter(validator_id=int(query_list[0]))[:10].values("public_key", "validator_id")
     else:
-        validators_count, validator_ids, public_keys = split_validator_ids(request.GET.get('query'))
+        validators_count, validator_ids, public_keys = split_validator_ids(request.GET.get('query'), request)
         validators = []
 
         if len(public_keys) > 0:

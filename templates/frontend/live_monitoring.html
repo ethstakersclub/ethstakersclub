@@ -190,7 +190,7 @@
               return value.map(value => value === 255 ? missed_attestation_string : value).join(", ")
             },
           },
-          { key: 'distance', label: 'Attestet',
+          { key: 'distance', label: 'Attested',
             renderFunction: (value, item) => {
               console.log(item)
               const missed_count = value.filter(val => val === 255).length;
@@ -200,13 +200,13 @@
               const slotDifference = currentSlot- item.slot;
               const countMissed = value.filter(val => val === 255).length;
 
-              percentAttestet = (value.length - countMissed) / value.length * 100
+              percentAttested = (value.length - countMissed) / value.length * 100
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-danger': percentAttestet < 80 && slotDifference > 5,
-                'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && slotDifference > 5,
-                'bg-primary': slotDifference <= 5 && percentAttestet < 95,
-                'bg-success': percentAttestet >= 95,
+                'bg-danger': percentAttested < 80 && slotDifference > 5,
+                'bg-warning': percentAttested < 95 && percentAttested >= 80 && slotDifference > 5,
+                'bg-primary': slotDifference <= 5 && percentAttested < 95,
+                'bg-success': percentAttested >= 95,
               };
             },
           },

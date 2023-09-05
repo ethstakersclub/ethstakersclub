@@ -27,7 +27,7 @@
             padding-left: 24px;
             padding-right: 24px;
             font-size:90%;
-        ">Upon request, we can raise the validator limit for an account from {{ validator_monitoring_limit|commaSeparatorNumber }} up to 32,000. Feel free to contact us via Twitter or Email.</p>
+        ">Upon request, we can raise the validator limit for an account from {{ validator_monitoring_limit|commaSeparatorNumber }} up to {{ validator_monitoring_limit_max|commaSeparatorNumber }}. Feel free to contact us via Twitter or Email.</p>
         <button type="button" data-dismiss="modal" class="btn btn-secondary" style="color: white;">Close</button>
         <button type="button" class="btn btn-primary" onclick="submitValidator()" style="color: white;background-color: #3a4c73;">Save Validators</button>
       </div>
@@ -90,7 +90,7 @@
           
             <li class="timeline">
               <div class="icon {% if validator_info.status == 'pending_initialized' or validator_info.status == 'deposited' %}working{% elif validator_info.status != 'unknown' %}done{% endif %}"></div>
-              <details class="panel">
+              <details class="panel" {% if validator_info.status == 'pending_initialized' or validator_info.status == 'deposited' %}open{% endif %}>
                 <summary>
                   <div>
                   <i class="far fa-question-circle question-tooltip"></i>Deposit
@@ -124,10 +124,10 @@
           
             <li class="timeline">
               <div class="icon {% if validator_info.status == 'pending_queued' %}working{% elif validator_info.status != 'pending_initialized' and validator_info.status != 'deposited' %}done{% endif %}"></div>
-              <details class="panel">
+              <details class="panel" {% if validator_info.status == 'pending_queued' %}open{% endif %}>
                 <summary>
-                  <i class="far fa-question-circle question-tooltip"></i>Pending
-                  {% if validator_info.status == 'pending_queued' %}
+                  <i class="far fa-question-circle question-tooltip"></i>Pending{% if validator_info.status == 'deposited' %} (rough estimate){% endif %}
+                  {% if validator_info.status == 'pending_queued' or validator_info.status == 'deposited' %}
                   <ul id="countdown" style="height: 80px;">
                     <li><span id="countdown-days" class="days timenumbers">00</span>
                         <p class="timeRefDays timedescription">days</p></li>
@@ -174,10 +174,11 @@
         </ul>
     </div>
   </div>
-  {% endif %}
 
-
-
+  <div class="row mx-0 pt-2" style="background: #111a2e;">
+  {% include 'frontend/validator_overview.html' %}
+  </div>
+  {% else %}
 
   {% if validator_count > 0 %}
   {% if not pending_validators_exist or dashboard == True %}
@@ -313,6 +314,7 @@
     </div>
   </div>
   {% endif %}
+  
   <div class="row mx-0 pt-2" style="background: #111a2e;">
     <div class="col-xl-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
       <div class="stats-element">
@@ -376,89 +378,8 @@
           <table-component :data="validatorOverviewJsonData" :columns="validatorOverviewTableColumns" :key-prop="'public_key'" :allow-sort="true" />
         </div>
         {% else %}
-        <div class="element-header">Validator Overview</div>
-        <div>
-
-
-
-
-          <div class="table-container dark-theme mt-0 ml-2 mr-2">
-            <table class="table table-dark mb-0">
-              <tbody>
-                <tr>
-                  <td>
-                    Status
-                  </td>
-                  <td>
-                    <span class="status-label rounded-pill px-2 text-nowrap {% if validator_info.status == 'active_ongoing' %}bg-success{% else %}bg-primary{% endif %}">{{ validator_info.status }}</span>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Balance
-                  </td>
-                  <td>
-                    {{ validator_info.balance }} {{ currency_name }}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Withdrawal Credentials
-                  </td>
-                  <td>
-                    {{ validator_info.w_cred_type }}
-                    <br>
-                    {{ validator_info.w_cred_address }}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Activation Eligibility Epoch
-                  </td>
-                  <td>
-                    {{ validator_info.activation_eligibility_epoch }}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Activation Epoch
-                  </td>
-                  <td>
-                    {{ validator_info.activation_epoch }}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Exit Epoch
-                  </td>
-                  <td>
-                    {{ validator_info.e_epoch }} {% if validator_info.e_epoch == 18446744073709551615 %}(unset){% endif %}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td>
-                    Withdrawal Epoch
-                  </td>
-                  <td>
-                    {{ validator_info.w_epoch }} {% if validator_info.w_epoch == 18446744073709551615 %}(unset){% endif %}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-
-
-
-
-
-        </div>
+          <div class="element-header">Validator Overview</div>
+          {% include 'frontend/validator_overview.html' %}
         {% endif %}
       </div>
     </div>
@@ -474,6 +395,8 @@
       </div>
     </div>
   </div>
+  {% endif %}
+
   {% if pending_validators_exist and dashboard %}
   <div class="row mx-0 pt-2" style="background: #111a2e;">
     <div class="col-12 p-0 d-flex flex-column" style="background: #151e33;height:100%">
@@ -486,8 +409,7 @@
     </div>
   </div>
   {% endif %}
-  <div class='element-header social'></div>
-  {% elif total_monitored_count == 0 %}
+  {% if total_monitored_count == 0 %}
 
   <div class="text-center">
     <div>
@@ -504,7 +426,9 @@
       {% endif %}
     </div>
   </div>
-
+  {% else %}
+  <div class='element-header social'></div>
+  {% endif %}
   {% endif %}
   {% include 'frontend/footer.html' %}
 </div>
@@ -514,7 +438,7 @@
 {% block script %}
 {% include 'frontend/vue_table.html' %}
 
-{% if validator_count > 0 and pending_validators_exist and dashboard == False %}
+{% if pending_validators_exist and dashboard == False %}
 <script>
   var countdownSeconds = {{ validator_info.seconds_till_activation }};
   
@@ -662,7 +586,7 @@
                 }).join(", ");
               },
             },
-            { key: 'distance', label: 'Attestet',
+            { key: 'distance', label: 'Attested',
               renderFunction: (value, item) => {
                 const missed_count = value.filter(val => val === 255).length;
                 return (value.length - missed_count) + "/" + value.length
@@ -671,15 +595,15 @@
                 const slotDifference = currentSlot - item.slot;
                 const countMissed = value.filter(val => val === 255).length;
                 
-                percentAttestet = (value.length - countMissed) / value.length * 100
+                percentAttested = (value.length - countMissed) / value.length * 100
                 if(value.length == 0)
-                  percentAttestet = 100
+                  percentAttested = 100
                 return {
                   'status-label rounded-pill px-2 text-nowrap': true,
-                  'bg-danger': percentAttestet < 80 && slotDifference > 5,
-                  'bg-warning': percentAttestet < 95 && percentAttestet >= 80 && slotDifference > 5,
-                  'bg-primary': slotDifference <= 5 && percentAttestet < 95,
-                  'bg-success': percentAttestet >= 95,
+                  'bg-danger': percentAttested < 80 && slotDifference > 5,
+                  'bg-warning': percentAttested < 95 && percentAttested >= 80 && slotDifference > 5,
+                  'bg-primary': slotDifference <= 5 && percentAttested < 95,
+                  'bg-success': percentAttested >= 95,
                 };
               },
             },
@@ -828,18 +752,18 @@
               return res.trim();
             },
           },
-          { key: 'missed_attestations', label: 'Attestet',
+          { key: 'missed_attestations', label: 'Attested',
             renderFunction: (value, item) => {
-              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
-              return ("Attestet (" + parseInt(percent_attestet) + "%)")
+              const percent_attested = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
+              return ("Attested (" + parseInt(percent_attested) + "%)")
             },
             renderClass: (value, item) => {
-              const percent_attestet = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
+              const percent_attested = (item.attestation_count - item.missed_attestations) / item.attestation_count * 100;
               return {
                 'status-label rounded-pill px-2 text-nowrap': true,
-                'bg-success': percent_attestet >= 95,
-                'bg-warning': percent_attestet >= 60 && percent_attestet < 95,
-                'bg-danger': percent_attestet < 60,
+                'bg-success': percent_attested >= 95,
+                'bg-warning': percent_attested >= 60 && percent_attested < 95,
+                'bg-danger': percent_attested < 60,
               };
             },
           },
@@ -957,6 +881,7 @@
             },
           },
         ],
+        {% endif %}
         validatorOverviewJsonData: [],
         validatorOverviewTableColumns: [
           { key: 'public_key', label: 'Public Key',
@@ -992,7 +917,6 @@
             },
           },
         ],
-        {% endif %}
         validatorAddJsonData: [],
         validatorAddTableColumns: [
           { key: 'validator_id', label: 'Validator ID',
@@ -1093,7 +1017,6 @@
     },
     mounted() {
       this.validatorAddJsonData = JSON.parse('{{ validator_overview|safe }}');
-      {% if validator_count > 0 %}
       this.attestationsJsonData = JSON.parse('[]');
       this.blocksJsonData = JSON.parse('[]');
       this.withdrawalsJsonData = JSON.parse('[]');
@@ -1101,7 +1024,6 @@
       this.pendingValidatorsJsonData = JSON.parse('{{ pending_validators_info|safe }}');
       this.dashboardSyncCommitteeParticipationsJsonData = JSON.parse('[]');
       this.validatorOverviewJsonData = [...this.validatorAddJsonData];
-      {% endif %}
 
       for(let i = 0;i<this.validatorAddJsonData.length;i++)
         this.validatorAddJsonData["new"] = false;
@@ -1439,7 +1361,7 @@ var efficiencyChart = new Chart(ctx, {
 
 
 
-
+{% if validator_count > 0 %}
 const nextProposalTimerElement = document.getElementById('nextProposalTimer');
 
 function startCountdown(timestamp, prefix) {
@@ -1476,5 +1398,6 @@ axios.get("{% url 'api:check_if_proposal_scheduled' %}")
   .catch(error => {
     console.error('Error:', error);
   });
+  {% endif %}
 </script>
 {% endblock %}
