@@ -376,7 +376,7 @@ def wait_for_genesis():
         
         seconds_waited_till_genesis += SECONDS_PER_SLOT
         if seconds_waited_till_genesis > TIMEOUT_CACHE - 1000:
-            process_validators_task.delay(head_slot)
+            process_validators_task.delay(0)
             seconds_waited_till_genesis = 0
 
 
