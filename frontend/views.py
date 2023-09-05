@@ -18,6 +18,8 @@ from api.util import calculate_activation_epoch, measure_execution_time, get_val
 import re
 from itertools import groupby
 
+GENESIS_TIME = timezone.make_aware(datetime.datetime.fromtimestamp(GENESIS_TIMESTAMP), timezone=timezone.utc)
+
 
 def calc_time_of_slot(slot):
     return timezone.make_aware(datetime.datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * slot)), timezone=timezone.utc)
@@ -531,6 +533,8 @@ def landing_page(request):
         'next_validator_onboarding_increase': next_validator_onboarding_increase,
         'finish_activation_queue_time': finish_activation_queue_time,
         'finish_exit_queue_time': finish_exit_queue_time,
+        'before_genesis': GENESIS_TIME > timezone.now(),
+        'seconds_until_genesis': (GENESIS_TIME - timezone.now()).total_seconds() if GENESIS_TIME > timezone.now() else 0,
     }
     view = render(request, 'frontend/landing.html', context)
 

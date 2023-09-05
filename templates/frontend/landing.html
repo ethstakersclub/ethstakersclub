@@ -27,7 +27,9 @@ margin: 0 auto;
 display: block;
 margin-bottom: 60px;
 padding: 14px;
-font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor up to {{ validator_monitoring_limit_max|commaSeparatorNumber }} validators</a>
+font-size: 110%;
+line-break: auto;
+white-space: break-spaces;" class="btn btn-primary text-white mt-4">Sign up to monitor up to {{ validator_monitoring_limit_max|commaSeparatorNumber }} validators</a>
         </div>
 
       <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
@@ -55,9 +57,26 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor up 
 
 
   <div class="m-0">
+    {% if not before_genesis %}
     <div class="linechart-element mt-1">
       <canvas id="linechart"></canvas>
     </div>
+    {% else %}
+    <div class="text-light-main mt-4 mb-5" style="text-align: center;">
+      <h2 class="text-light-main">Countdown until Genesis</h2>
+      <ul id="countdown" style="height: 80px;">
+        <li><span id="countdown-days" class="days timenumbers">00</span>
+          <p class="timeRefDays timedescription">days</p></li>
+        <li><span id="countdown-hours" class="hours timenumbers">00</span>
+          <p class="timeRefHours timedescription">hours</p></li>
+        <li><span id="countdown-minutes" class="minutes timenumbers">00</span>
+          <p class="timeRefMinutes timedescription">minutes</p></li>
+        <li><span id="countdown-seconds" class="seconds timenumbers">00</span>
+          <p class="timeRefSeconds timedescription">seconds</p></li>
+      </ul>
+    <p class="mb-0 ml-1 mt-0 pb-0"><span style="font-weight: 400;">Genesis Validators:</span> {{ active_validators|commaSeparatorNumber }}</p>
+    </div>
+    {% endif %}
   </div>
 
 
@@ -221,7 +240,7 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor up 
 
 
 
-
+  {% if not before_genesis %}
   Chart.defaults.borderColor = '#ffffff07';
   Chart.defaults.color = '#ddd';
   var ctx = document.getElementById("linechart").getContext("2d");
@@ -334,5 +353,30 @@ font-size: 110%;" class="btn btn-primary text-white mt-4">Sign up to monitor up 
       }
     }
   });
+  {% else %}
+  var countdownSeconds = {{ seconds_until_genesis }};
+  
+  var countDownDate = new Date().getTime() + (countdownSeconds * 1000);
+  
+  var x = setInterval(function() {
+    var now = new Date().getTime();
+    var distance = countDownDate - now;
+  
+    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+    
+    $("#countdown-days").html(days);
+    $("#countdown-hours").html(hours);
+    $("#countdown-minutes").html(minutes);
+    $("#countdown-seconds").html(seconds);
+  
+    if (distance < 0) {
+      clearInterval(x);
+      document.getElementById("demo").innerHTML = "EXPIRED";
+    }
+  }, 1000);
+  {% endif %}
 </script>
 {% endblock %}
