@@ -8,7 +8,7 @@ import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
                                     SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP, \
-                                    EPOCH_REWARDS_HISTORY_DISTANCE, GENESIS_VALIDATORS_ARE_PRE_MINED
+                                    EPOCH_REWARDS_HISTORY_DISTANCE, GENESIS_VALIDATORS_ARE_PRE_MINED, TIMEOUT_CACHE
 import requests
 from blockfetcher.models import Main, Epoch, SyncCommittee, StakingDeposit
 from datetime import datetime
@@ -367,6 +367,19 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
     return head_slot, loop_epoch, last_balance_update_time
 
 
+def wait_for_genesis():
+    GENESIS_TIME = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP), timezone=timezone.utc)
+    seconds_waited_till_genesis = 0
+    while GENESIS_TIME > timezone.now():
+        print_status('info', f"{GENESIS_TIME - timezone.now()} until genesis time is reached.")
+        time.sleep(SECONDS_PER_SLOT)
+        
+        seconds_waited_till_genesis += SECONDS_PER_SLOT
+        if seconds_waited_till_genesis > TIMEOUT_CACHE - 1000:
+            process_validators_task.delay(head_slot)
+            seconds_waited_till_genesis = 0
+
+
 class Command(BaseCommand):
     help = 'Starts the block listener'
 
@@ -382,6 +395,8 @@ class Command(BaseCommand):
         while last_slot_processed < head_slot - 128:
             last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row)
             head_slot = update_head()[0]
+        
+        wait_for_genesis()
 
         def with_urllib3(url, headers):
             import urllib3
