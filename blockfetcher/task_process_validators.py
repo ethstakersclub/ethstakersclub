@@ -4,7 +4,7 @@ from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_A
                                     BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, ACTIVE_STATUSES
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee, ValidatorBalance
 from itertools import islice
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed
 from threading import Lock
 from datetime import datetime
 import logging
@@ -14,6 +14,7 @@ from django.core.cache import cache
 from blockfetcher.beacon_api import BeaconAPI
 import json
 from api.util import measure_execution_time
+import traceback
 
 logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
@@ -295,43 +296,64 @@ def create_validators(validators):
     pool.shutdown()
 
 
+def run_function_with_error_handling(func, *args, **kwargs):
+    try:
+        result = func(*args, **kwargs)
+        return (result, None)
+    except Exception as e:
+        return (None, traceback.format_exc())
+    
+
 def process_validators(slot):
     logger.info("request validators from beacon api")
 
     validators = beacon.get_validators(state_id=str(slot))
+    validator_count = len(validators["data"])
 
     create_validators(validators)
-
     assign_validators_to_staking_deposits(validators)
     update_validator_withdrawal_address(validators)
     update_validator_activation_epochs(validators)
 
-    efficiency = get_attestation_efficiency(int(slot / SLOTS_PER_EPOCH) - 2, len(validators["data"]))
+    results_dict = {}
+    with ThreadPoolExecutor() as executor:
+        functions = {
+            "efficiency": (get_attestation_efficiency, (int(slot / SLOTS_PER_EPOCH) - 2, validator_count)),
+            "total_amount_withdrawn": (calculate_total_withdrawn_by_validator, ()),
+            "total_execution_rewards": (calculate_total_execution_reward_by_validator, ()),
+            "sync_committee_participation_dict": (calculate_sync_committee_participation_count, (slot,)),
+            "validator_missed_attestations_dict": (calculate_validator_missed_attestations, (slot,)),
+            "validator_missed_sync_dict": (calculate_validator_missed_sync, (slot,)),
+            "validator_missed_sync_all_dict": (calculate_validator_missed_sync_all, ()),
+            "proposals_per_validator_dict": (count_proposals, (slot,)),
+            "successful_proposals_per_validator_dict": (count_successful_proposals, (slot,)),
+            "proposals_after_merge_per_validator_dict": (count_proposals_after_merge, (slot,)),
+            "max_reward_per_validator_dict": (calculate_highest_reward, (slot,)),
+            "withdrawals_per_validator_dict": (count_withdrawals_per_validator, (slot,)),
+            "total_deposited_dict": (calculate_total_deposited_by_validator, ()),
+        }
 
-    total_amount_withdrawn = calculate_total_withdrawn_by_validator()
-    total_execution_rewards = calculate_total_execution_reward_by_validator()
-    
-    sync_committee_participation_dict = calculate_sync_committee_participation_count(slot)
-    validator_missed_attestations_dict = calculate_validator_missed_attestations(slot)
-    validator_missed_sync_dict = calculate_validator_missed_sync(slot)
+        def process_function(key, func, args):
+            result, error = run_function_with_error_handling(func, *args)
+            if error:
+                logger.error(f"Error occurred in {key}: {error}")
+                result = {}
+            else:
+                logger.info(f"Validator task {key} completed successfully.")
+            
+            return key, result
 
-    validator_missed_sync_all_dict = calculate_validator_missed_sync_all()
+        futures = [executor.submit(process_function, key, func, args) for key, (func, args) in functions.items()]
 
-    proposals_per_validator_dict = count_proposals(slot)
-    successful_proposals_per_validator_dict = count_successful_proposals(slot)
-    proposals_after_merge_per_validator_dict = count_proposals_after_merge(slot)
-
-    max_reward_per_validator_dict = calculate_highest_reward(slot)
-
-    withdrawals_per_validator_dict = count_withdrawals_per_validator(slot)
-
-    total_deposited_dict = calculate_total_deposited_by_validator()
+        for future in as_completed(futures):
+            key, result = future.result()
+            results_dict[key] = result
 
     pending_validators, active_validators = 0, 0
     cache_data = {}
     for count, val in enumerate(validators["data"]):
         if count % 50000 == 0:
-            logger.info(f"loaded {count} of {len(validators['data'])} validators")
+            logger.info(f"loaded {count} of {validator_count} validators")
         
         validator = {
             "validator_id": int(val["index"]),
@@ -339,27 +361,27 @@ def process_validators(slot):
             "status": str(val["status"]),
             "e_epoch": int(val["validator"]["exit_epoch"]),
             "w_epoch": int(val["validator"]["withdrawable_epoch"]),
-            "efficiency": efficiency[int(val["index"])] if int(val["index"]) in efficiency else 0,
+            "efficiency": results_dict["efficiency"][int(val["index"])] if int(val["index"]) in results_dict["efficiency"] else 0,
             "total_consensus_balance":
                 int(val["balance"]) +
-                int(total_amount_withdrawn[int(val["index"])] if int(val["index"]) in total_amount_withdrawn else 0),
-            "execution_reward": int(total_execution_rewards[int(val["index"])] if int(val["index"]) in total_execution_rewards else 0),
-            "sync_p_count": sync_committee_participation_dict[int(val["index"])] if int(val["index"]) in sync_committee_participation_dict else 0,
-            "missed_attestations": validator_missed_attestations_dict[int(val["index"])] if int(val["index"]) in validator_missed_attestations_dict else 0,
-            "missed_sync": validator_missed_sync_dict[int(val["index"])] if int(val["index"]) in validator_missed_sync_dict else 0,
-            "missed_sync_total": validator_missed_sync_all_dict[int(val["index"])] if int(val["index"]) in validator_missed_sync_all_dict else 0,
+                int(results_dict["total_amount_withdrawn"][int(val["index"])] if int(val["index"]) in results_dict["total_amount_withdrawn"] else 0),
+            "execution_reward": int(results_dict["total_execution_rewards"][int(val["index"])] if int(val["index"]) in results_dict["total_execution_rewards"] else 0),
+            "sync_p_count": results_dict["sync_committee_participation_dict"][int(val["index"])] if int(val["index"]) in results_dict["sync_committee_participation_dict"] else 0,
+            "missed_attestations": results_dict["validator_missed_attestations_dict"][int(val["index"])] if int(val["index"]) in results_dict["validator_missed_attestations_dict"] else 0,
+            "missed_sync": results_dict["validator_missed_sync_dict"][int(val["index"])] if int(val["index"]) in results_dict["validator_missed_sync_dict"] else 0,
+            "missed_sync_total": results_dict["validator_missed_sync_all_dict"][int(val["index"])] if int(val["index"]) in results_dict["validator_missed_sync_all_dict"] else 0,
             "pre_val": pending_validators if str(val["status"]) == "pending_queued" else -1,
-            "proposals": proposals_per_validator_dict[int(val["index"])] if int(val["index"]) in proposals_per_validator_dict else 0,
-            "s_proposals": successful_proposals_per_validator_dict[int(val["index"])] if int(val["index"]) in successful_proposals_per_validator_dict else 0,
-            "am_proposals": proposals_after_merge_per_validator_dict[int(val["index"])] if int(val["index"]) in proposals_after_merge_per_validator_dict else 0,
-            "max_reward": max_reward_per_validator_dict[int(val["index"])] if int(val["index"]) in max_reward_per_validator_dict else 0,
-            "withdrawals": withdrawals_per_validator_dict[int(val["index"])] if int(val["index"]) in withdrawals_per_validator_dict else 0,
-            "deposited": total_deposited_dict[int(val["index"])] if int(val["index"]) in total_deposited_dict else 0,
+            "proposals": results_dict["proposals_per_validator_dict"][int(val["index"])] if int(val["index"]) in results_dict["proposals_per_validator_dict"] else 0,
+            "s_proposals": results_dict["successful_proposals_per_validator_dict"][int(val["index"])] if int(val["index"]) in results_dict["successful_proposals_per_validator_dict"] else 0,
+            "am_proposals": results_dict["proposals_after_merge_per_validator_dict"][int(val["index"])] if int(val["index"]) in results_dict["proposals_after_merge_per_validator_dict"] else 0,
+            "max_reward": results_dict["max_reward_per_validator_dict"][int(val["index"])] if int(val["index"]) in results_dict["max_reward_per_validator_dict"] else 0,
+            "withdrawals": results_dict["withdrawals_per_validator_dict"][int(val["index"])] if int(val["index"]) in results_dict["withdrawals_per_validator_dict"] else 0,
+            "deposited": results_dict["total_deposited_dict"][int(val["index"])] if int(val["index"]) in results_dict["total_deposited_dict"] else 0,
         }
 
         cache_data['validator_' + str(int(val["index"]))] = json.dumps(validator)
 
-        if len(cache_data) > 100000:
+        if len(cache_data) > 50000:
             logger.info("bulk add validators to cache...")
             cache.set_many(cache_data, timeout=5000)
             cache_data = {}
