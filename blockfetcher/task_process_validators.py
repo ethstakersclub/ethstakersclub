@@ -308,7 +308,7 @@ def run_function_with_error_handling(func, *args, **kwargs):
 def process_validators(slot):
     logger.info("request validators from beacon api")
 
-    if slot <= get_validator_update_slot_from_cache():
+    if slot < get_validator_update_slot_from_cache():
         logger.info("higher slot already processed skipping")
         return
 
