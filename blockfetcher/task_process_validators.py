@@ -15,6 +15,7 @@ from blockfetcher.beacon_api import BeaconAPI
 import json
 from api.util import measure_execution_time
 import traceback
+from blockfetcher.cache import *
 
 logger = logging.getLogger(__name__)
 beacon = BeaconAPI(BEACON_API_ENDPOINT_OPTIONAL_GZIP)
@@ -306,6 +307,10 @@ def run_function_with_error_handling(func, *args, **kwargs):
 
 def process_validators(slot):
     logger.info("request validators from beacon api")
+
+    if slot <= get_validator_update_slot_from_cache():
+        logger.info("higher slot already processed skipping")
+        return
 
     validators = beacon.get_validators(state_id=str(slot))
     validator_count = len(validators["data"])
