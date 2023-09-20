@@ -11,3 +11,4 @@ celery[redis]
 django-celery-beat
 django_redis
 Pillow==9.0.0
+django-pwa==1.1.0

@@ -15,6 +15,8 @@
     </a>
     <a href="{% url 'settings' %}" class='navigation-elm {% if current_page == "settings" %}navigation-elm-active{% endif %}'><span class='nav-text'><i class="fa fa-fw fa-gear"></i><span class='text-short'>Settings</span></span>
     </a>
+    <a id="installApp" class='hidden navigation-elm' style="border-top:1px solid #232b3d;margin-top:15px;"><span class='nav-text'><i class="fa fa-fw fa-plus-square"></i><span class='text-short'>Install for Quick Access</span></span>
+    </a>
     {% if not user.is_authenticated %}
     <div style="text-align: center;margin: 20px;">
         <a href="{% url 'account_signup' %}" style="background: #52628a;padding: 10px;width: 100%;display: inline-block;border-radius: 50px;cursor: pointer;border-bottom:none;">

@@ -137,3 +137,15 @@ MEV_BOOST_RELAYS = {
     "Agnostic Relay": "https://agnostic-relay.net",
     "ultra sound relay": "https://relay.ultrasound.money"
 }
+
+# PWA App
+PWA_APP_NAME = 'EthStakers.club'
+PWA_APP_DESCRIPTION = 'Ethereum Validator Monitoring and Beacon Chain Explorer'
+PWA_APP_THEME_COLOR = '#111a2e'
+PWA_APP_BACKGROUND_COLOR = '#111a2e'
+PWA_APP_DISPLAY = 'standalone'
+PWA_APP_SCOPE = '/'
+PWA_APP_ORIENTATION = 'portrait'
+PWA_APP_START_URL = '/dashboard'
+PWA_APP_STATUS_BAR_COLOR = 'default'
+PWA_SERVICE_WORKER_PATH = os.path.join(STATIC_URL, 'js', 'serviceworker.js')

@@ -1,4 +1,5 @@
 {% load static %}
+{% load pwa %}
 
 <!DOCTYPE html>
 <html>
@@ -19,10 +20,18 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
     <link rel="icon" type="image/png" sizes="96x96" href="{% static 'img/favicon/favicon-96x96.png' %}">
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
-    <link rel="manifest" href="{% static 'img/favicon/manifest.json' %}">
     <meta name="msapplication-TileColor" content="#111a2e">
     <meta name="msapplication-TileImage" content="{% static 'img/favicon//ms-icon-144x144.png' %}">
     <meta name="theme-color" content="#111a2e">
+
+    <script>
+      // Prevent PWA install popup
+      window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+      });
+    </script>
+
+    {% progressive_web_app_meta %}
 
     <link rel="stylesheet" href="{% static 'css/vendor/bootstrap.min.css' %}" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">

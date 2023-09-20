@@ -5,7 +5,7 @@
   <div class="container-fluid navbar-container">
 <a class="navbar-brand" data-test="header_logo" href="/">
 
-        <img class="navbar-logo" id="navbar-logo" src="{% static 'img/logo.png' %}" alt="EthStakers Club" style="margin-right: 10px; max-height: 40px;max-width: 25px; filter: brightness(0) invert(1);">
+        <img class="navbar-logo" id="navbar-logo" src="{% static 'img/logo.png' %}" alt="EthStakers Club Logo" style="margin-right: 10px; max-height: 40px;max-width: 25px; filter: brightness(0) invert(1);">
         <div style="display: flex; flex-direction: column;">
           <span class="header-top-logo-text">EthStakers</span>
           <span style="font-size: 18px;line-height: 1.1;">.club</span>
@@ -21,12 +21,12 @@ Testnet
 
 </a>
 <div class="navbar-toggler-group">
-<button style="background: none;border: none;" id="search-toggler">
+<button style="background: none;border: none;" id="search-toggler" aria-label="Search Button">
 	<svg viewBox="0 0 16 17" xmlns="http://www.w3.org/2000/svg" width="16" height="17">
 		<path fill="#fff" fill-rule="evenodd" d="M15.713 15.727a.982.982 0 0 1-1.388 0l-2.289-2.29C10.773 14.403 9.213 15 7.5 15A7.5 7.5 0 1 1 15 7.5c0 1.719-.602 3.284-1.575 4.55l2.288 2.288a.983.983 0 0 1 0 1.389zM7.5 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 1 0 0-11z"></path>
 	</svg>
 </button>
-    <button id="navbar-toggler" class="navbar-toggler" type="button">
+    <button id="navbar-toggler" class="navbar-toggler" type="button" aria-label="Navbar Toggle Button">
       <span class="navbar-toggler-icon"></span>
     </button>
 </div>

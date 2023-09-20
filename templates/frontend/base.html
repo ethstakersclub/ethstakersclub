@@ -1,4 +1,5 @@
 {% load static %}
+{% load pwa %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -35,10 +36,22 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}">
     <link rel="icon" type="image/png" sizes="96x96" href="{% static 'img/favicon/favicon-96x96.png' %}">
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}">
-    <link rel="manifest" href="{% static 'img/favicon/manifest.json' %}">
     <meta name="msapplication-TileColor" content="#111a2e">
     <meta name="msapplication-TileImage" content="{% static 'img/favicon//ms-icon-144x144.png' %}">
     <meta name="theme-color" content="#111a2e">
+
+    <script>
+        // Prevent install popup and enable custom install button
+        var deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installApp = document.getElementById('installApp');
+            installApp.classList.remove("hidden");
+        });
+    </script>
+
+    {% progressive_web_app_meta %}
 
     <link rel="stylesheet" href="{% static 'css/vendor/bootstrap.min.css' %}" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
@@ -78,6 +91,23 @@
 <script src="{% static 'js/vendor/popperjs_core_2_11_8_dist_umd_popper.min.js' %}"></script>
 <script src="{% static 'js/vendor/tippy-bundle_6_3_7.umd.min.js' %}"></script>
 {% block script %}{% endblock %}
+
+<script>
+    const installApp = document.getElementById('installApp');
+
+    installApp.addEventListener('click', async () => {
+        if (deferredPrompt !== null) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                deferredPrompt = null;
+            }
+        }
+        else {
+            console.log("deferredPrompt is null")
+        }
+    });
+</script>
 
 <script>
     var screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
