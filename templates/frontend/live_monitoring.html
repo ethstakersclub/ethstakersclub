@@ -94,6 +94,11 @@
             renderFunction: (value, item) => {
               return calculateTimeDifference(value)
             },
+            renderClass: (value, item) => {
+              return {
+                'text-nowrap': true,
+              };
+            },
           },
           { key: 'validator_id', label: 'Validator ID',
             link: (value, item) => {
@@ -113,7 +118,7 @@
             renderClass: (value, item) => {
               const slotDifference = currentSlot- item.slot;
               return {
-                'status-label rounded-pill px-2': true,
+                'status-label rounded-pill px-2 text-nowrap': true,
                 'bg-danger': item.distance === 255 && slotDifference > 16,
                 'bg-primary': item.distance === 255 && slotDifference <= 16,
                 'bg-success': item.distance !== 255,
@@ -142,6 +147,11 @@
           { key: 'block_timestamp', label: 'Time',
             renderFunction: (value, item) => {
               return calculateTimeDifference(value)
+            },
+            renderClass: (value, item) => {
+              return {
+                'text-nowrap': true,
+              };
             },
           },
           { key: 'distance', label: 'Distance',

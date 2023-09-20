@@ -18,29 +18,43 @@ function calculateTimeDifference(timestamp) {
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
+    // Function to check if the screen width indicates a mobile device
+    function isMobileDevice() {
+        return window.innerWidth <= 768;
+    }
+    
+    // Function to format time units
+    function formatTimeUnit(value, unit) {
+        if (value > 0) {
+            return isMobileDevice() ? `${value}${unit.charAt(0)}` : `${value} ${unit}${value > 1 ? 's' : ''}`;
+        } else {
+            return 'just now';
+        }
+    }
+    
     if (isPast) {
         if (diffDays > 0) {
-        formattedTimeDifference = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            formattedTimeDifference = `${formatTimeUnit(diffDays, 'day')} ago`;
         } else if (diffHours > 0) {
-        formattedTimeDifference = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+            formattedTimeDifference = `${formatTimeUnit(diffHours, 'hour')} ago`;
         } else if (diffMinutes > 0) {
-        formattedTimeDifference = `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+            formattedTimeDifference = `${formatTimeUnit(diffMinutes, 'minute')} ago`;
         } else if (diffSeconds > 0) {
-        formattedTimeDifference = `${diffSeconds} second${diffSeconds > 1 ? 's' : ''} ago`;
-        }else {
-        formattedTimeDifference = 'just now';
+            formattedTimeDifference = `${formatTimeUnit(diffSeconds, 'second')} ago`;
+        } else {
+            formattedTimeDifference = 'just now';
         }
     } else {
         if (diffDays > 0) {
-        formattedTimeDifference = `in ${diffDays} day${diffDays > 1 ? 's' : ''}`;
+            formattedTimeDifference = `in ${formatTimeUnit(diffDays, 'day')}`;
         } else if (diffHours > 0) {
-        formattedTimeDifference = `in ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+            formattedTimeDifference = `in ${formatTimeUnit(diffHours, 'hour')}`;
         } else if (diffMinutes > 0) {
-        formattedTimeDifference = `in ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+            formattedTimeDifference = `in ${formatTimeUnit(diffMinutes, 'minute')}`;
         } else if (diffSeconds > 0) {
-        formattedTimeDifference = `in ${diffSeconds} second${diffSeconds > 1 ? 's' : ''}`;
+            formattedTimeDifference = `in ${formatTimeUnit(diffSeconds, 'second')}`;
         } else {
-        formattedTimeDifference = 'just now';
+            formattedTimeDifference = 'just now';
         }
     }
 

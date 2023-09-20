@@ -1,7 +1,7 @@
 # context_processors.py
 
 from ethstakersclub.settings import CURRENCY_NAME, VALIDATOR_MONITORING_LIMIT, DEBUG, ATTESTATION_EFFICIENCY_EPOCHS, EPOCH_REWARDS_HISTORY_DISTANCE, \
-                                    ACTIVE_STATUSES, PENDING_STATUSES, EXITED_STATUSES, EXITING_STATUSES, CURRENCY_NAME_FULL, VALIDATOR_MONITORING_LIMIT_MAX
+                                    ACTIVE_STATUSES, PENDING_STATUSES, EXITED_STATUSES, EXITING_STATUSES, CURRENCY_NAME_FULL, VALIDATOR_MONITORING_LIMIT_MAX, VERSION
 from blockfetcher.cache import *
 from blockfetcher.models import Main
 
@@ -12,6 +12,7 @@ def general_context_processor(request):
 
     return {
         'DEBUG': DEBUG,
+        'VERSION': VERSION,
         'currency_name': CURRENCY_NAME,
         'currency_name_full': CURRENCY_NAME_FULL,
         'attestation_efficiency_epochs': ATTESTATION_EFFICIENCY_EPOCHS,

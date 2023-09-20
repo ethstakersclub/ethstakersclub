@@ -265,9 +265,9 @@
   <div class='row mx-0'>
     <div class='piechart-element'>
       <div class='piechart-label'>
-        <div class='label-heading'>Attestation Efficiency ({{ attestation_efficiency_epochs }} epochs):</div>
+        <div class='label-heading mt-2'>Attestation Efficiency ({{ attestation_efficiency_epochs }} epochs):</div>
         <table class='small mt-2'>
-          <tr><td class="text-light-main">Current Average Efficiency:</td><td class="pl-2">{{ average_attestation_efficiency|floatformat:2 }}%</td></tr>
+          <tr><td class="text-light-main">Global Average:</td><td class="pl-2">{{ average_attestation_efficiency|floatformat:2 }}%</td></tr>
           <tr><td class="text-light-main pt-3">Total Attestations:</td><td class="pl-2 pt-3">{{ total_attestations|commaSeparatorNumber }}</td></tr>
           <tr><td class="text-light-main">Missed (Past Month):</td><td class="pl-2">{{ apy.2.missed_attestations|commaSeparatorNumber }}</td></tr>
         </table>
@@ -281,10 +281,10 @@
     <div class='piechart-element'>
 
       <div class='piechart-label'>
-        <div class='label-heading'>Sync Committee:</div>
+        <div class='label-heading mt-2'>Sync Committee:</div>
         <table class='small mt-2'>
           <tr><td class="text-light-main">Participations:</td><td class="pl-2">{{ sync_participation_count }}</td></tr>
-          <tr><td class="text-light-main">Missed Sync Duties:</td><td class="pl-2">{{ missed_sync_committee_duties }}/{{ sync_duty_count }}</td></tr>
+          <tr><td class="text-light-main">Missed Duties:</td><td class="pl-2">{{ missed_sync_committee_duties }}/{{ sync_duty_count }}</td></tr>
 
           <tr><td class="pt-3 text-light-main">Current since {{ active_sync_validators.start_in }}</td><td class="pl-2 pt-3">{% for i in active_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating</td></tr>
           <tr><td class="text-light-main">Next in {{ next_sync_validators.start_in }}</td><td class="pl-2">{% for i in next_sync_validators.validators %}<a href="/validator/{{ i }}">{{ i }}</a>{% if not forloop.last %}, {% else %} is{% endif %}{% empty %}not{% endfor %} participating</td></tr>
@@ -298,12 +298,12 @@
     </div>
     <div class='piechart-element'>
       <div class='piechart-label'>
-        <div class='label-heading'>Block Proposals:</div>
+        <div class='label-heading mt-2'>Block Proposals:</div>
         <table class='small mt-2'>
-          <tr><td class="text-light-main">Total Proposals:</td><td class="pl-2">{{ proposed_blocks_count }}/{{ block_count }}</td></tr>
+          <tr><td class="text-light-main">Proposals:</td><td class="pl-2">{{ proposed_blocks_count }}/{{ block_count }}</td></tr>
           <tr><td class="text-light-main">On Average Every:</td><td class="pl-2">{{ avg_time_till_proposal }}</td></tr>
-          <tr><td class="text-light-main pt-3">Average Reward:</td><td class="pl-2 pt-3">{% if average_execution_reward > 0 %}+{% endif %}{{ average_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
-          <tr><td class="text-light-main">Highest Reward:</td><td class="pl-2">{% if highest_execution_reward > 0 %}+{% endif %}{{ highest_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
+          <tr><td class="text-light-main pt-3">Average:</td><td class="pl-2 pt-3">{% if average_execution_reward > 0 %}+{% endif %}{{ average_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
+          <tr><td class="text-light-main">Highest:</td><td class="pl-2">{% if highest_execution_reward > 0 %}+{% endif %}{{ highest_execution_reward|floatformat:3 }} {{ currency_name }}</td></tr>
         </table>
       </div>
       <div class='piechart-percent main-color'>{{ block_proposal_efficiency }}%</div>
@@ -332,7 +332,7 @@
         </div>
       </div>
     </div>
-    <div class="col-xl-6 p-0 d-flex flex-column" style="background: #151e33;height:100%">
+    <div class="col-xl-6 p-0 d-flex flex-column mt-2 mt-xl-0" style="background: #151e33;height:100%">
       <div class="stats-element">
         <div class="element-header">Block Proposals<span id="nextProposalTimer" class="ml-2"></span></div>
         <div>
