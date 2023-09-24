@@ -54,7 +54,7 @@
     {% progressive_web_app_meta %}
 
     <link rel="stylesheet" href="{% static 'css/vendor/bootstrap.min.css' %}" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
-    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?{{ VERSION }}">
     <link rel="stylesheet" href="{% static 'css/vendor/font-awesome.min.css' %}" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         @media only screen and (max-width: 1280px) {
@@ -169,19 +169,35 @@
         }
     });
 
+    function toggle_menu(){
+        $(".sidebar").toggleClass("show");
+        $("#search-group").toggleClass("show");
+        $("#navbarSupportedContent").toggleClass("show");
+        $(".menu-overlay").toggleClass("show");
+    }
+
+    function hide_menu(){
+        $(".sidebar").removeClass("show");
+        $("#search-group").removeClass("show");
+        $("#navbarSupportedContent").removeClass("show");
+        $(".menu-overlay").removeClass("show");
+    }
+
     $(document).ready(function() {
         $("#navbar-toggler").click(function() {
-            $(".sidebar").toggleClass("show");
-            $("#search-group").toggleClass("show");
-            $("#navbarSupportedContent").toggleClass("show");
+            toggle_menu();
         });
     });
 
     $(document).ready(function() {
         $("#search-toggler").click(function() {
-            $(".sidebar").toggleClass("show");
-            $("#search-group").toggleClass("show");
-            $("#navbarSupportedContent").toggleClass("show");
+            toggle_menu();
+        });
+    });
+
+    $(document).ready(function() {
+        $(".menu-overlay").click(function() {
+            hide_menu();
         });
     });
 </script>

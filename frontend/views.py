@@ -31,8 +31,8 @@ def get_time_diff_to_now(time):
 
 
 def get_time_diff_to_now_short(time):
-    return get_time_diff_to_now(time).replace("seconds", "s").replace("hours", "h").replace("minutes", "min").replace("days", "d")\
-        .replace("second", "s").replace("hour", "h").replace("minute", "min").replace("day", "d")
+    return get_time_diff_to_now(time).replace(" seconds", "s").replace(" hours", "h").replace(" minutes", "min").replace(" days", "d")\
+        .replace(" second", "s").replace(" hour", "h").replace(" minute", "min").replace(" day", "d")
 
 
 def round_to_one_decimal_place(number):
@@ -274,13 +274,13 @@ def get_average_time_till_proposal(active_validators_count, active_owned_validat
         if days > 0:
             result = f"{days} {'day' if days == 1 else 'days'}"
             if hours > 0 or minutes > 0:
-                result += f" and {hours} {'hour' if hours == 1 else 'hours'}"
+                result += f", {hours} {'hour' if hours == 1 else 'hours'}"
             if minutes > 0:
-                result += f" and {minutes} {'minute' if minutes == 1 else 'minutes'}"
+                result += f", {minutes} {'minute' if minutes == 1 else 'minutes'}"
         elif hours > 0:
             result = f"{hours} {'hour' if hours == 1 else 'hours'}"
             if minutes > 0:
-                result += f" and {minutes} {'minute' if minutes == 1 else 'minutes'}"
+                result += f", {minutes} {'minute' if minutes == 1 else 'minutes'}"
         else:
             result = f"{minutes} {'minute' if minutes == 1 else 'minutes'}"
 
