@@ -340,7 +340,6 @@ def load_block(slot, epoch):
         logger.warning("potential reorg at slot " + str(slot))
         new_block.empty = 2
         new_block.save()
-        Withdrawal.objects.filter(block=new_block).delete()
         return
     elif block_not_found:
         logger.info("block at slot " + str(slot) + " not found (likely not proposed)")
