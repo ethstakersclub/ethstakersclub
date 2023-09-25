@@ -64,3 +64,11 @@ def get_latest_rewards_and_penalties_epoch():
         return int(cache.get('latest_rewards_and_penalties_epoch'))
     except:
         return 0
+
+
+def get_highest_reward(days):
+    try:
+        data = cache.get(f"highest_reward_past_{days}_days")
+        return json.loads(data)
+    except:
+        return{}

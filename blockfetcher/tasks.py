@@ -113,6 +113,15 @@ def get_current_client_release_task(self):
         self.retry(countdown=5)
 
 
+@shared_task(bind=True, soft_time_limit=80, max_retries=20, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+def calc_highest_rewards_task(self, slot):
+    try:
+        calc_highest_rewards(slot)
+    except Exception as e:
+        logger.warning("An error occurred while calculating the highest rewards.", exc_info=True)
+        self.retry(countdown=5)
+
+
 def fetch_mev_rewards(lowest_slot, cursor_slot):
     logger.info("Fetch MEV rewards  lowest_slot=%s cursor_slot=%s", lowest_slot, cursor_slot)
 
@@ -697,3 +706,23 @@ def load_epoch(epoch, slot):
         ]
 
         AttestationCommittee.objects.bulk_create(attestation_committees, batch_size=10000, ignore_conflicts=True)
+
+
+def calc_highest_rewards(slot):
+    calc_highest_reward(slot, 1)
+    calc_highest_reward(slot, 7)
+    calc_highest_reward(slot, 30)
+
+
+def calc_highest_reward(slot, days):
+    try:
+        highest_day = Block.objects.filter(slot_number__gt=slot-(MAX_SLOTS_PER_DAY * days), slot_number__lte=slot).order_by("-total_reward")[0]
+        cache.set(f"highest_reward_past_{days}_days", json.dumps({ 
+            "reward": float(highest_day.total_reward / 10**18),
+            "slot": int(highest_day.slot_number),
+        }), timeout=20000)
+    except:
+        cache.set(f"highest_reward_past_{days}_days", json.dumps({ 
+            "reward": 0,
+            "slot": 0,
+        }), timeout=20000)

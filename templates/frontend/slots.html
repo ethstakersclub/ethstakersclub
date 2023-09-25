@@ -5,7 +5,33 @@
 {% block content %}
 <div class='dashboard-container' id="app">
   {% include 'frontend/sidebar.html' with current_page='slots' %}
-  <div class="row m-0" style="padding-top:80px;">
+  <div class="row m-0">
+    <div class="row m-0 mt-70 mt-xxl-0">
+      <div class="col-md-12" style="padding: 0;">
+        <div class="row" style="margin: 0;background-color: #151e33;margin-bottom: 12px;">
+
+          <div class="key-metrics landing-key-metrics col-6 col-md-3">
+            <div class="small text-light-main">Highest Past Day</div><a href="/slot/{{ highest_reward_day.slot }}">{{ highest_reward_day.reward|floatformat:2 }} {{ currency_name }}</a>
+          </div>
+
+          <div class="key-metrics landing-key-metrics col-6 col-md-3">
+            <div class="small text-light-main">Highest Past Week</div><a href="/slot/{{ highest_reward_week.slot }}">{{ highest_reward_week.reward|floatformat:2 }} {{ currency_name }}</a>
+          </div>
+      
+          <div class="key-metrics landing-key-metrics col-6 col-md-3">
+            <div class="small text-light-main">Highest Past Month</div><a href="/slot/{{ highest_reward_month.slot }}">{{ highest_reward_month.reward|floatformat:2 }} {{ currency_name }}</a>
+          </div>
+
+          <div class="key-metrics landing-key-metrics col-6 col-md-3">
+            <div class="small text-light-main">Average Yesterday</div>{{ global_average|floatformat:4 }} {{ currency_name }}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row m-0">
     <div class="linechart-element col-md-9">
       <canvas id="linechart"></canvas>
     </div>

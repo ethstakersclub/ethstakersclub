@@ -435,13 +435,20 @@ def show_slots(request):
             entry["hour"] = entry["hour"].strftime("%Y-%m-%d %H:%M")
             entry["average_reward"] = float(entry["average_reward"] / 10**18)
 
+    global_average = 0
     for a in average_by_hour:
         average_by_hour[a]["average"] = average_by_hour[a]["total"] / average_by_hour[a]["count"]
+        global_average += average_by_hour[a]["average"]
         average_by_hour[a]["median"] = statistics.median(average_by_hour[a]["rewards"])
+    global_average /= len(average_by_hour)
 
     context = {
         'avg_rewards_slots': json.dumps(avg_rewards_slots),
         'average_by_hour': sorted(average_by_hour.values(), key=lambda x: x["median"]),
+        'global_average': global_average,
+        'highest_reward_day': get_highest_reward(1),
+        'highest_reward_week': get_highest_reward(7),
+        'highest_reward_month': get_highest_reward(30),
     }
     view = render(request, 'frontend/slots.html', context)
 
