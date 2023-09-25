@@ -97,6 +97,11 @@
             renderFunction: (value, item) => {
               return calculateTimeDifference(value)
             },
+            renderClass: (value, item) => {
+              return {
+                'text-nowrap': true,
+              };
+            },
           },
           { key: 'participated', label: 'Participated',
             renderFunction: (value, item) => {

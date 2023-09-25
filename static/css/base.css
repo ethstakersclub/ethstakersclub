@@ -215,6 +215,10 @@ ul[id^=autoComplete_list_]{background-color:#111a2e!important;}
 .navbar.navbar-primary .search-form{margin-bottom:-2px;margin-top:-2px;}
 }
 
+html {
+  background-color: #111a2e;
+}
+
 body,
 html,
 .dashboard-container {
@@ -224,7 +228,6 @@ html,
 }
 
 .dashboard-container {
-    overflow-X: hidden;
     float: left;
     background: #0c1324;
     padding-left: 300px;
