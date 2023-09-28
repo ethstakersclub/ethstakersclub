@@ -86,7 +86,7 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward_task(self, epoch)
         self.retry(countdown=5)
 
 
-@shared_task(bind=True, soft_time_limit=400, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+@shared_task(bind=True, soft_time_limit=600, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
 def process_validators_task(self, slot):
     try:
         process_validators(slot)
