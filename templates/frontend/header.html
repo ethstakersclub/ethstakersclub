@@ -6,9 +6,9 @@
 <a class="navbar-brand" data-test="header_logo" href="/">
 
         <img class="navbar-logo" id="navbar-logo" src="{% static 'img/logo.png' %}" alt="EthStakers Club Logo" style="margin-right: 10px; max-height: 40px;max-width: 25px; filter: brightness(0) invert(1);">
-        <div style="display: flex; flex-direction: column;">
+        <h1 style="display: flex; flex-direction: column;">
           <span class="header-top-logo-text">EthStakers</span><span style="font-size: 18px;line-height: 1.1;">.club</span>
-        </div>
+		</h1>
 
 {% comment %}
 <div class="bs-label testnet-label ml-2">
@@ -16,7 +16,7 @@ Testnet
 </div>
 {% endcomment %}
 
-<div class="ml-4 epoch-slot"><span class="mr-2">Epoch: <span class="font-weight-bold" style="">{{ current_epoch|commaSeparatorNumber }}</span></span><br><span>Slot: <span class="font-weight-bold" style="">{{ current_slot|commaSeparatorNumber }}</span></span></div>
+<div class="ml-4 epoch-slot"><span class="mr-2"><span style="font-size:90%">Epoch:</span> <span class="font-weight-bold" style="">{{ current_epoch|commaSeparatorNumber }}</span></span><br><span><span style="font-size:90%">Slot:</span> <span class="font-weight-bold" style="">{{ current_slot|commaSeparatorNumber }}</span></span></div>
 
 </a>
 <div class="navbar-toggler-group">
