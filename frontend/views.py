@@ -155,11 +155,11 @@ def split_validator_ids(index, request=None):
             combined = ','.join(str(x) for x in validator_ids) + ','.join(str(x) for x in public_keys)
             print(combined)
             request.user.profile.watched_validators = combined
-            
+
         if request.user.is_authenticated:
-            print(f"User {request.user.email} initiated the request. Number of validators: {len(validators)}.")
+            print(f"User {request.user.email} initiated the request. Number of validators: {len(index_array)}.")
         else:
-            print(f"Request initiated by an unregistered user. Number of validators: {len(validators)}.")
+            print(f"Request initiated by an unregistered user. Number of validators: {len(index_array)}.")
 
     return len(index_array), list(validator_ids), list([key[2:] if key.startswith("0x") else key for key in public_keys])
 
