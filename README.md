@@ -54,7 +54,7 @@ This feature extends to sync monitoring, offering a similar feature.
 A table is shown when validators are pending, offering an easy method to track their shift to an active status. This feature ensures you're consistently aware of when validators are coming online.
 
 <div align="center">
-  <img src="screenshot/screenshot_proposal.png" alt="Screenshot" width="92%">
+  <img src="screenshot/screenshot_pending_validators.png" alt="Screenshot" width="92%">
 </div>
 
 ### 📊 Comprehensive Validator Information
