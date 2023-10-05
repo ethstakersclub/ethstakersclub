@@ -522,6 +522,12 @@ def load_block(slot, epoch):
         new_block.save(update_fields=fields_to_update)
 
 
+def is_block_found(response, slot):
+    return ("message" in response and str(response["message"]) != "NOT_FOUND: beacon block at slot " + str(slot)) \
+        and not (("code" in response and int(response["code"]) == 500) \
+        or ("code" in response and int(response["code"]) == 404))
+
+
 def load_epoch_rewards(epoch):
     logger.info("load epoch " + str(epoch) + " consensus rewards")
 
@@ -533,9 +539,8 @@ def load_epoch_rewards(epoch):
     sync_rewards = {}
     for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
         sync_rewards_json = beacon.get_rewards_sync(slot, '[]')
-        block_not_found = "message" in sync_rewards_json and str(sync_rewards_json["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
 
-        if not block_not_found:
+        if is_block_found(sync_rewards_json, slot):
             for sync_reward in sync_rewards_json["data"]:
                 validator_index = int(sync_reward["validator_index"])
                 reward = int(sync_reward["reward"])
@@ -567,9 +572,8 @@ def load_epoch_rewards(epoch):
     for slot in range(epoch * SLOTS_PER_EPOCH, (epoch + 1) * SLOTS_PER_EPOCH):
         url = BEACON_API_ENDPOINT + "/eth/v1/beacon/rewards/blocks/" + str(slot)
         block_reward = requests.get(url).json()
-        block_not_found = "message" in block_reward and str(block_reward["message"]) == "NOT_FOUND: beacon block at slot " + str(slot)
 
-        if not block_not_found:
+        if is_block_found(block_reward, slot):
             epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_attestations"] = int(block_reward["data"]["attestations"])
             epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_sync_aggregate"] = int(block_reward["data"]["sync_aggregate"])
             epoch_rewards[int(block_reward["data"]["proposer_index"])]["block_proposer_slashings"] = int(block_reward["data"]["proposer_slashings"])
