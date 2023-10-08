@@ -506,8 +506,13 @@ def landing_page(request):
     latest_epoch_stats = Epoch.objects.exclude(active_validators=None).order_by('-epoch').first()
     
     active_validators = int(latest_epoch_stats.active_validators)
-    pending_validators = int(latest_epoch_stats.pending_validators)
     exiting_validators = int(latest_epoch_stats.exiting_validators)
+
+    pending_validators = 0
+    try:
+        pending_validators = latest_epoch_stats.validators_status_json["pending_queued"]
+    except:
+        pass
 
     validator_onboarding_per_epoch = int(active_validators / CHURN_LIMIT_QUOTIENT)
     next_validator_onboarding_increase = ((validator_onboarding_per_epoch + 1) * CHURN_LIMIT_QUOTIENT) - (validator_onboarding_per_epoch * CHURN_LIMIT_QUOTIENT)
