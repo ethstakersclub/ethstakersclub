@@ -480,6 +480,7 @@ h1 {
   padding-right:2rem;
   padding-left:2rem;
   margin-bottom: 5px;
+  background-color: #0c1324;
 }
 
 .container {
@@ -798,8 +799,14 @@ a{
 }
 
 @media only screen and (max-width:400px) {
-  .header-top-logo-text{
-    font-size: 18px;
+  .header-top-logo-text {
+    font-size: 16px;
+  }
+  .epoch-slot {
+    margin-left: 0.8rem !important;
+  }
+  .navbar {
+    padding: 0.5rem 0.4rem !important;
   }
   .mt-70 {
     margin-top: 66px !important;
