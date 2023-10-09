@@ -528,13 +528,14 @@ def landing_page(request):
         days, hours = divmod(hours, 24)
         if days > 1:
             return f"{int(days)} {'days' if days != 1 else 'day'}, {int(hours)} {'hours' if hours != 1 else 'hour'}"
-        elif hours > 1:
+        elif hours >= 1 or days == 1:
+            hours += days * 24
             return f"{int(hours)} {'hours' if hours != 1 else 'hour'}, {int(minutes)} min"
         else:
             return f"{int(minutes)} minutes"
 
-    finish_activation_queue_time = format_time(finish_activation_queue_seconds)
-    finish_exit_queue_time = format_time(finish_exit_queue_seconds)
+    finish_activation_queue_time = format_time(int(finish_activation_queue_seconds))
+    finish_exit_queue_time = format_time(int(finish_exit_queue_seconds))
 
     context = {
         'validators_chart_data': json.dumps(validators_chart_data),
