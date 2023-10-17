@@ -10,11 +10,12 @@ Before proceeding with the installation, make sure you have the following prereq
 - libpq-dev
 - PostgreSQL
 - PostgreSQL-contrib
+- Redis
 
 To install these prerequisites on Ubuntu, run the following commands:
 ```bash
 sudo apt update
-sudo apt install python3-venv python3-pip libpq-dev postgresql postgresql-contrib
+sudo apt install python3-venv python3-pip libpq-dev postgresql postgresql-contrib redis
 sudo systemctl start postgresql.service
 ```
 

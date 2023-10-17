@@ -2,7 +2,7 @@ from django.shortcuts import render
 from blockfetcher.models import Validator, Block, Epoch, SyncCommittee, StakingDeposit, EthClient
 import time
 from django.core.cache import cache
-from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY
+from ethstakersclub.settings import CHURN_LIMIT_QUOTIENT, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BALANCE_PER_VALIDATOR, GENESIS_TIMESTAMP, MONITORING_RANKS, MAX_SLOTS_PER_DAY, MIN_PER_EPOCH_CHURN_LIMIT
 import json
 from django.utils import timezone
 import datetime
@@ -17,6 +17,8 @@ import statistics
 from api.util import calculate_activation_epoch, measure_execution_time, get_validator_limit
 import re
 from itertools import groupby
+
+GENESIS_TIME = timezone.make_aware(datetime.datetime.fromtimestamp(GENESIS_TIMESTAMP), timezone=timezone.utc)
 
 
 def calc_time_of_slot(slot):
@@ -515,6 +517,9 @@ def landing_page(request):
         pass
 
     validator_onboarding_per_epoch = int(active_validators / CHURN_LIMIT_QUOTIENT)
+    if validator_onboarding_per_epoch < MIN_PER_EPOCH_CHURN_LIMIT:
+        validator_onboarding_per_epoch = MIN_PER_EPOCH_CHURN_LIMIT
+
     next_validator_onboarding_increase = ((validator_onboarding_per_epoch + 1) * CHURN_LIMIT_QUOTIENT) - (validator_onboarding_per_epoch * CHURN_LIMIT_QUOTIENT)
 
     finish_activation_queue_seconds = (pending_validators / validator_onboarding_per_epoch) * SLOTS_PER_EPOCH * SECONDS_PER_SLOT
@@ -546,6 +551,8 @@ def landing_page(request):
         'next_validator_onboarding_increase': next_validator_onboarding_increase,
         'finish_activation_queue_time': finish_activation_queue_time,
         'finish_exit_queue_time': finish_exit_queue_time,
+        'before_genesis': GENESIS_TIME > timezone.now(),
+        'seconds_until_genesis': (GENESIS_TIME - timezone.now()).total_seconds() if GENESIS_TIME > timezone.now() else 0,
     }
     view = render(request, 'frontend/landing.html', context)
 

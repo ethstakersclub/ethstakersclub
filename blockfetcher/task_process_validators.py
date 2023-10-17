@@ -1,7 +1,7 @@
 from celery import shared_task
 from datetime import datetime
 from ethstakersclub.settings import SLOTS_PER_EPOCH, MAX_SLOTS_PER_DAY, BEACON_API_ENDPOINT, ATTESTATION_EFFICIENCY_EPOCHS, \
-                                    BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, ACTIVE_STATUSES
+                                    BEACON_API_ENDPOINT_OPTIONAL_GZIP, MERGE_SLOT, ACTIVE_STATUSES, TIMEOUT_CACHE
 from blockfetcher.models import Block, Validator, Withdrawal, StakingDeposit, SyncCommittee, MissedSync, MissedAttestation, AttestationCommittee, ValidatorBalance
 from itertools import islice
 from concurrent.futures import ThreadPoolExecutor, wait, as_completed
@@ -56,7 +56,7 @@ def get_attestation_efficiency(epoch, validator_count):
 
     average_attestation_efficiency = total_efficiency / total_efficiency_counter if total_efficiency_counter > 0 else 0
     logger.info("average attestation efficiency is " + str(average_attestation_efficiency))
-    cache.set('average_attestation_efficiency', average_attestation_efficiency, timeout=5000)
+    cache.set('average_attestation_efficiency', average_attestation_efficiency, timeout=TIMEOUT_CACHE)
 
     return efficiency
 
@@ -312,7 +312,7 @@ def process_validators(slot):
         logger.info("higher slot already processed skipping")
         return
 
-    validators = beacon.get_validators(state_id=str(slot))
+    validators = beacon.get_validators(state_id=str(slot) if slot != 0 else 'genesis')
     validator_count = len(validators["data"])
 
     create_validators(validators)
@@ -388,7 +388,7 @@ def process_validators(slot):
 
         if len(cache_data) > 50000:
             logger.info("bulk add validators to cache...")
-            cache.set_many(cache_data, timeout=5000)
+            cache.set_many(cache_data, timeout=TIMEOUT_CACHE)
             cache_data = {}
 
         if str(val["status"]) == "pending_queued":
@@ -397,7 +397,7 @@ def process_validators(slot):
             active_validators += 1    
         
     logger.info("bulk add validators to cache...")
-    cache.set_many(cache_data, timeout=5000)
+    cache.set_many(cache_data, timeout=TIMEOUT_CACHE)
 
-    cache.set("validator_update_slot", slot, timeout=5000)
-    cache.set("active_validators", active_validators, timeout=5000)
+    cache.set("validator_update_slot", slot, timeout=TIMEOUT_CACHE)
+    cache.set("active_validators", active_validators, timeout=TIMEOUT_CACHE)

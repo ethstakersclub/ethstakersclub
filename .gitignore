@@ -9,6 +9,7 @@ media
 /settings.py
 .idea
 user_data.db
+userdata.db
 
 # Backup files # 
 *.bak 

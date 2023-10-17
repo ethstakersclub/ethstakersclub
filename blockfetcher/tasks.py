@@ -87,6 +87,15 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward_task(self, epoch)
 
 
 @shared_task(bind=True, soft_time_limit=600, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
+def epoch_validator_statistics_task(self, epoch):
+    try:
+        epoch_validator_statistics(epoch)
+    except Exception as e:
+        logger.warning("An error occurred while calculating validator statistics for epoch %s (%e).", epoch, e, exc_info=True)
+        self.retry(countdown=5)
+
+
+@shared_task(bind=True, soft_time_limit=800, max_retries=10000, acks_late=True, reject_on_worker_lost=True, acks_on_failure_or_timeout=True)
 def process_validators_task(self, slot):
     try:
         process_validators(slot)
@@ -176,8 +185,10 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
         .order_by('slot_number').first().slot_number
     lowest_slot_at_date = Block.objects.filter(slot_number__range=(slot - (MAX_SLOTS_PER_DAY + 300), slot + (MAX_SLOTS_PER_DAY + 300)), timestamp__gt=timestamp_target)\
         .order_by('slot_number').first().slot_number
-    
+
     highest_block_at_date = Block.objects.filter(slot_number__lte=highest_slot_at_date, empty=0).order_by('-slot_number').first().block_number
+    if highest_block_at_date == None and highest_slot_at_date <= 1:
+        highest_block_at_date = 0
     
     if ValidatorBalance.objects.filter(date=timestamp_target).exists() and force_run == False:
         logger.info("snapshot exists on date " + str(timestamp_target) + " slot " + str(highest_slot_at_date))
@@ -188,7 +199,7 @@ def make_balance_snapshot(slot, timestamp, force_run=False):
         else:
             logger.error("snapshot slot does not match existing one. new: %s.", highest_slot_at_date)
 
-    validators = beacon.get_validators(state_id=str(highest_slot_at_date))
+    validators = beacon.get_validators(state_id=str(highest_slot_at_date) if slot != 0 else 'genesis')
 
     logger.info("updating historical balance of " + str(len(validators["data"])) + " validators at slot " + str(highest_slot_at_date))
 
@@ -301,8 +312,21 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
     epoch_object.average_block_reward = average_block_reward
     epoch_object.timestamp = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * epoch * SLOTS_PER_EPOCH)), timezone=timezone.utc)
 
+    epoch_object.save()
+
+    MissedAttestation.objects.bulk_create(missed_attestation_to_create, batch_size=1024, ignore_conflicts=True)
+    if len(existing_missed_attestations_for_epoch) > 0:
+        logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
+        MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
+
+
+@transaction.atomic
+def epoch_validator_statistics(epoch):
     logger.info("creating validator statistics %s.", epoch)
-    validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH))
+
+    epoch_object = Epoch.objects.get(epoch=epoch)
+
+    validators = beacon.get_validators(state_id=str(epoch*SLOTS_PER_EPOCH) if epoch != 0 else 'genesis')
 
     status_list = [v["status"] for v in validators["data"]]
     status_counts = Counter(status_list)
@@ -315,15 +339,10 @@ def epoch_aggregate_missed_attestations_and_average_mev_reward(epoch):
 
     epoch_object.save()
 
-    MissedAttestation.objects.bulk_create(missed_attestation_to_create, batch_size=1024, ignore_conflicts=True)
-    if len(existing_missed_attestations_for_epoch) > 0:
-        logger.warning("removing previously wrongly added missed attestations: count= %s", len(existing_missed_attestations_for_epoch))
-        MissedAttestation.objects.filter(validator_id__in=existing_missed_attestations_for_epoch).delete()
-
 
 @transaction.atomic
 def load_block(slot, epoch):
-    url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/" + str(slot)
+    url = BEACON_API_ENDPOINT + "/eth/v2/beacon/blocks/" + str(slot)
     block = requests.get(url).json()
     logger.info("Process block at slot %s: %s", slot, str(block)[:200])
 
@@ -365,6 +384,7 @@ def load_block(slot, epoch):
         new_block.signature = block["data"]["signature"]
         new_block.graffiti = block["data"]["message"]["body"]["graffiti"]
         new_block.randao_reveal = block["data"]["message"]["body"]["randao_reveal"]
+        new_block.timestamp = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * slot)), timezone=timezone.utc)
 
         url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/" + str(slot) + "/root"
         new_block.block_root = requests.get(url).json()["data"]["root"]
@@ -417,20 +437,6 @@ def load_block(slot, epoch):
                 Withdrawal.objects.bulk_create(withdrawal_objects, update_conflicts=True, 
                                                 update_fields=["amount", "validator", "address", "block"], 
                                                 unique_fields=["index"])
-                '''
-                validator_ids = [int(withdrawal["validator_index"]) for withdrawal in withdrawals]
-                validator_total_withdrawals = (
-                    Withdrawal.objects.filter(validator__in=validator_ids)
-                    .values("validator")
-                    .annotate(total=Sum("amount"))
-                )
-
-                validator_updates = [
-                    Validator(validator_id=withdrawal["validator"], total_withdrawn=decimal.Decimal(withdrawal["total"]))
-                    for withdrawal in validator_total_withdrawals
-                ]
-                Validator.objects.bulk_update(validator_updates, fields=["total_withdrawn"])
-                '''
 
             new_block.block_number = execution_block["number"]
             new_block.timestamp = timezone.make_aware(datetime.fromtimestamp(execution_block["timestamp"]), timezone=timezone.utc)
@@ -691,7 +697,7 @@ def load_epoch(epoch, slot):
             )
             for proposal in epoch_proposer["data"]
         ]
-        Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer"], unique_fields=["slot_number"])
+        Block.objects.bulk_create(proposals_epoch, batch_size=512, update_conflicts=True, update_fields=["proposer", "timestamp", "epoch"], unique_fields=["slot_number"])
 
         logger.info(f"load attestation committee at epoch {epoch} slot {slot}")
         epoch_attestations = beacon.get_attestation_committees(slot, epoch)

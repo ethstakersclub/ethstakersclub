@@ -2,14 +2,15 @@ from django.core.management.base import BaseCommand
 from blockfetcher.tasks import load_epoch_task, load_epoch, get_deposits_task, process_validators_task,\
                                load_block_task, make_balance_snapshot_task, load_epoch_rewards_task, \
                                fetch_mev_rewards_task, epoch_aggregate_missed_attestations_and_average_mev_reward_task, \
-                               get_current_client_release_task, calc_highest_rewards_task
+                               get_current_client_release_task, calc_highest_rewards_task, epoch_validator_statistics_task
 import json
 import requests
 from ethstakersclub.settings import DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK, BEACON_API_ENDPOINT, SLOTS_PER_EPOCH,\
                                     w3, MERGE_SLOT, EPOCH_REWARDS_HISTORY_DISTANCE_SYNC, SECONDS_PER_SLOT, GENESIS_TIMESTAMP, \
-                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP
+                                    SNAPSHOT_CREATION_EPOCH_DELAY_SYNC, MAX_TASK_QUEUE, ALTAIR_EPOCH, BEACON_API_ENDPOINT_OPTIONAL_GZIP, \
+                                    EPOCH_REWARDS_HISTORY_DISTANCE, GENESIS_VALIDATORS_ARE_PRE_MINED, TIMEOUT_CACHE
 import requests
-from blockfetcher.models import Main, Epoch, SyncCommittee
+from blockfetcher.models import Main, Epoch, SyncCommittee, StakingDeposit
 from datetime import datetime
 from django.utils import timezone
 import time
@@ -20,6 +21,7 @@ from blockfetcher.management.commands.test_get_pending_celery_tasks import get_s
 from blockfetcher.util import print_status
 import sseclient
 from blockfetcher.beacon_api import BeaconAPI
+import traceback
 
 
 count = 0
@@ -47,11 +49,52 @@ def load_current_state(main_row):
     main_row.save()
 
 
-def create_sync_committee(finalized_check_epoch):
+def remove_0x_prefix(string):
+    if string[:2] == "0x":
+        return string[2:]
+    else:
+        return string
+
+
+@transaction.atomic
+def process_pre_mined_validator_deposits(head_slot):
+    print_status('info', "Process pre mined validator deposists")
+    
+    validators = beacon.get_validators(state_id="0" if head_slot != 0 else "genesis")
+    
+    deposits_to_create = []
+    for count, val in enumerate(validators["data"]):
+        if str(val["status"]) == "active_ongoing":
+            deposits_to_create.append(StakingDeposit(
+                index=(int(val["index"]) * -1) - 1,
+                block_number=-1,
+                amount=int(val["balance"]),
+                public_key=remove_0x_prefix(str(val["validator"]["pubkey"])),
+                withdrawal_credentials=remove_0x_prefix(str(val["validator"]["withdrawal_credentials"])),
+                signature="",
+                transaction_index=0,
+                transaction_hash="0x0",
+                validator_id=int(val["index"]),
+            ))
+    
+    print_status('info', "Bulk create pre mined validator deposists")
+    
+    StakingDeposit.objects.bulk_create(deposits_to_create, 512, update_conflicts=True, 
+                                                update_fields=["block_number", "amount", "public_key", "withdrawal_credentials", 
+                                                               "signature", "transaction_index", "transaction_hash", "validator_id"], 
+                                                unique_fields=["index"])
+
+
+def create_sync_committee(finalized_check_epoch, head_slot=None):
     sync_check_epoch = finalized_check_epoch + 256
+    if sync_check_epoch < 0:
+        sync_check_epoch = 0
+
     sync_check_slot = finalized_check_epoch * SLOTS_PER_EPOCH
     if sync_check_slot < ALTAIR_EPOCH * SLOTS_PER_EPOCH:
         sync_check_slot = ALTAIR_EPOCH * SLOTS_PER_EPOCH
+    if head_slot == 0:
+        sync_check_slot = 'genesis'
     sync_period = sync_check_epoch / 256
     sync_committee, created = SyncCommittee.objects.get_or_create(period=sync_period)
 
@@ -99,10 +142,11 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
     for slot in range(last_epoch_slot_processed, (main_row.finalized_checkpoint_epoch * SLOTS_PER_EPOCH)):
         while True:
             try:
-                if int(slot / SLOTS_PER_EPOCH) != loop_epoch:
+                epoch = int(slot / SLOTS_PER_EPOCH)
+                if epoch != loop_epoch:
                     tasks_count = wait_for_task_queue_to_clear()
 
-                    load_epoch_task.delay(int(slot / SLOTS_PER_EPOCH), slot)
+                    load_epoch_task.delay(epoch, slot)
 
                     epochs_processed += 1
 
@@ -114,7 +158,7 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
                         main_row.last_epoch_slot_processed = slot - SLOTS_PER_EPOCH
                         main_row.save()
 
-                    loop_epoch = int(slot / SLOTS_PER_EPOCH)
+                    loop_epoch = epoch
                 break
             except KeyboardInterrupt:
                 return
@@ -124,12 +168,15 @@ def setup_epochs(main_row, last_slot_processed, loop_epoch):
 
 
 def setup_staking_deposits(main_row, head_block):
-    last_staking_deposits_update_block = main_row.last_staking_deposits_update_block
+    # recheck the previous 60 block as well to ensure there were no reorgs or anything after shutdown
+    last_staking_deposits_update_block = main_row.last_staking_deposits_update_block - 60
 
     if last_staking_deposits_update_block < DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK - 1:
         last_staking_deposits_update_block = DEPOSIT_CONTRACT_DEPLOYMENT_BLOCK - 1
+    if last_staking_deposits_update_block < 0:
+        last_staking_deposits_update_block = 0
 
-    for i in range(last_staking_deposits_update_block - 60, head_block + 1, 1000):
+    for i in range(last_staking_deposits_update_block, head_block + 1, 1000):
         while True:
             try:
                 wait_for_task_queue_to_clear()
@@ -153,13 +200,15 @@ def setup_staking_deposits(main_row, head_block):
             except Exception as e:
                 print_status('error', e)
                 continue
-
-    main_row.last_staking_deposits_update_block = i
-    main_row.save()
+    try:
+        main_row.last_staking_deposits_update_block = i
+        main_row.save()
+    except:
+        pass
 
 
 def update_head():
-    url = BEACON_API_ENDPOINT + "/eth/v1/beacon/blocks/head"
+    url = BEACON_API_ENDPOINT + "/eth/v2/beacon/blocks/head"
     head = requests.get(url).json()
     
     head_slot = int(head["data"]["message"]["slot"])
@@ -186,6 +235,12 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
         validator_task = process_validators_task.delay(head_slot)
         while not validator_task.ready():
             time.sleep(1)
+        if GENESIS_VALIDATORS_ARE_PRE_MINED and not StakingDeposit.objects.all().exists():
+            process_pre_mined_validator_deposits(head_slot)
+
+            validator_task = process_validators_task.delay(head_slot)
+            while not validator_task.ready():
+                time.sleep(1)
 
         # recheck the previous 35 block as well to ensure there were no reorgs after shutdown
         last_slot_processed = main_row.last_slot - 35
@@ -194,7 +249,10 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
         loop_epoch = int(last_slot_processed / SLOTS_PER_EPOCH)
 
-        create_sync_committee(loop_epoch - 256)
+        # fetch previous epoch as well
+        loop_epoch = loop_epoch - 1
+
+        create_sync_committee(loop_epoch - 256, head_slot)
 
         SNAPSHOT_CREATION_EPOCH_DELAY = SNAPSHOT_CREATION_EPOCH_DELAY_SYNC
         MEV_FETCH_DELAY_SLOTS = SLOTS_PER_EPOCH * 2
@@ -212,6 +270,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
 
     if last_mev_reward_fetch_slot < MERGE_SLOT - 1:
         last_mev_reward_fetch_slot = MERGE_SLOT - 1
+    if last_mev_reward_fetch_slot < 0:
+        last_mev_reward_fetch_slot = 0
 
     if initial_run:
         print_status('info', 'Started up: filling epochs')
@@ -237,6 +297,8 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                         else:
                             if not Epoch.objects.filter(epoch=check_epoch).exists():
                                 load_epoch(check_epoch, slot)
+                        if check_epoch == 0:
+                            epoch_validator_statistics_task.delay(check_epoch)
 
                         if not reorg:
                             if not initial_run:
@@ -250,9 +312,10 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                     get_current_client_release_task.delay()
                                     calc_highest_rewards_task.delay(slot)
 
-                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2:
+                            if check_epoch > head_epoch - EPOCH_REWARDS_HISTORY_DISTANCE_SYNC - 2 and EPOCH_REWARDS_HISTORY_DISTANCE != 0:
                                 print_status('info', 'load epoch rewards...')
-                                load_epoch_rewards_task.delay(check_epoch - 2)
+                                if check_epoch - 2 >= 0:
+                                    load_epoch_rewards_task.delay(check_epoch - 2)
 
                             snapshot_creation_timestamp = GENESIS_TIMESTAMP + (SECONDS_PER_SLOT * (slot - (SLOTS_PER_EPOCH * SNAPSHOT_CREATION_EPOCH_DELAY)))
                             snapshot_creation_date = timezone.make_aware(datetime.fromtimestamp(snapshot_creation_timestamp), timezone=timezone.utc)
@@ -269,11 +332,12 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                                 finalized_check_epoch = check_epoch - 3
                                 for i in range(last_missed_attestation_aggregation_epoch + 1, finalized_check_epoch + 1):
                                     epoch_aggregate_missed_attestations_and_average_mev_reward_task.delay(i)
+                                    epoch_validator_statistics_task.delay(i)
 
                                     last_missed_attestation_aggregation_epoch=i
                                     main_row.last_missed_attestation_aggregation_epoch = last_missed_attestation_aggregation_epoch
 
-                                create_sync_committee(finalized_check_epoch)
+                                create_sync_committee(finalized_check_epoch, head_slot)
 
                         loop_epoch = int(slot / SLOTS_PER_EPOCH)
 
@@ -300,9 +364,23 @@ def sync_up(main_row, last_slot_processed=0, loop_epoch=0, last_balance_update_t
                 return
             except Exception as e:
                 print_status('error', e)
+                print(traceback.format_exc())
                 continue
     
     return head_slot, loop_epoch, last_balance_update_time
+
+
+def wait_for_genesis():
+    GENESIS_TIME = timezone.make_aware(datetime.fromtimestamp(GENESIS_TIMESTAMP), timezone=timezone.utc)
+    seconds_waited_till_genesis = 0
+    while GENESIS_TIME > timezone.now():
+        print_status('info', f"{GENESIS_TIME - timezone.now()} until genesis time is reached.")
+        time.sleep(SECONDS_PER_SLOT)
+        
+        seconds_waited_till_genesis += SECONDS_PER_SLOT
+        if seconds_waited_till_genesis > TIMEOUT_CACHE - 1000:
+            process_validators_task.delay(0)
+            seconds_waited_till_genesis = 0
 
 
 class Command(BaseCommand):
@@ -310,7 +388,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         main_row, created = Main.objects.get_or_create(id=1, defaults={
-            'last_balance_snapshot_planned_date': timezone.make_aware(datetime.fromtimestamp(0), timezone=timezone.utc),
+            'last_balance_snapshot_planned_date': timezone.make_aware(datetime.fromtimestamp(0), timezone=timezone.utc).date(),
             'finalized_checkpoint_epoch': 0,
             'justified_checkpoint_epoch': 0,
             })
@@ -320,6 +398,8 @@ class Command(BaseCommand):
         while last_slot_processed < head_slot - 128:
             last_slot_processed, loop_epoch, last_balance_update_time = sync_up(main_row)
             head_slot = update_head()[0]
+        
+        wait_for_genesis()
 
         def with_urllib3(url, headers):
             import urllib3
